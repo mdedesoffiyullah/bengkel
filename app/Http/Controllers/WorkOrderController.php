@@ -1,0 +1,1025 @@
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Customer;
+use App\Models\Product;
+use App\Models\ProductCategory;
+use App\Models\Service;
+use App\Models\WorkOrder;
+use App\Models\WorkOrderItem;
+use App\Services\InventoryFifoService;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
+
+class WorkOrderController extends Controller
+{
+    public function index()
+    {
+        $workOrders = WorkOrder::with('customer')
+            ->latest()
+            ->paginate(15);
+
+        return view('work_orders.index', compact('workOrders'));
+    }
+
+    public function create()
+    {
+        $customers = Customer::where('is_active', true)
+            ->orderBy('name')
+            ->get();
+
+        $products = Product::where('is_active', true)
+            ->orderBy('name')
+            ->get();
+
+        $services = Service::where('is_active', true)
+            ->orderBy('name')
+            ->get();
+
+        $nextCode = $this->generateCode('WO-', 'work_orders', 'code');
+
+        return view('work_orders.create', compact(
+            'customers',
+            'products',
+            'services',
+            'nextCode'
+        ));
+    }
+
+    public function store(Request $request)
+    {
+        $validated = $this->validateWorkOrder($request);
+
+        return DB::transaction(function () use ($request, $validated) {
+
+            $customer = $this->resolveCustomer($validated);
+
+            $workOrder = WorkOrder::create([
+                'code' => $validated['code'],
+                'status' => $validated['status'] ?? 'OPEN',
+                'customer_id' => $customer->id,
+                'type' => $validated['type'] ?? 'REGULAR',
+                'opened_at' => $validated['opened_at'] ?? now(),
+                'complaint' => $validated['complaint'] ?? null,
+                'diagnosis' => $validated['diagnosis'] ?? null,
+                'notes' => $validated['notes'] ?? null,
+                'discount' => $validated['discount'] ?? 0,
+                'subtotal' => 0,
+                'grand_total' => 0,
+            ]);
+
+            $subtotal = $this->saveItems(
+                $workOrder,
+                $request->input('items', [])
+            );
+
+            $discount = (float) ($validated['discount'] ?? 0);
+
+            $grandTotal = max(
+                0,
+                $subtotal - $discount
+            );
+
+            $workOrder->update([
+                'subtotal' => $subtotal,
+                'grand_total' => $grandTotal,
+            ]);
+
+            /*
+             * ====================================================
+             * PAYMENT SAAT CREATE WO
+             * ====================================================
+             */
+
+            $paymentAmount = (float) (
+                $validated['payment_amount'] ?? 0
+            );
+
+            if ($paymentAmount > 0) {
+
+                if ($paymentAmount > $grandTotal) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'payment_amount' =>
+                            'Jumlah pembayaran tidak boleh melebihi Grand Total Work Order.',
+                    ]);
+                }
+
+                $paymentMethod =
+                    $validated['payment_method'] ?? null;
+
+                if (!$paymentMethod) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'payment_method' =>
+                            'Metode pembayaran wajib dipilih jika ada pembayaran.',
+                    ]);
+                }
+
+                $workOrder->payments()->create([
+                    'code' =>
+                        'PAY-' .
+                        now()->format('YmdHisv'),
+
+                    'paid_at' =>
+                        $validated['payment_paid_at']
+                        ?? now(),
+
+                    'amount' =>
+                        $paymentAmount,
+
+                    'method' =>
+                        $paymentMethod,
+
+                    'reference_number' =>
+                        $validated['payment_reference_number']
+                        ?? null,
+
+                    'notes' =>
+                        $validated['payment_notes']
+                        ?? null,
+                ]);
+            }
+
+            return redirect()
+                ->route(
+                    'work-orders.show',
+                    $workOrder
+                )
+                ->with(
+                    'success',
+                    $paymentAmount > 0
+                        ? 'Work Order dan pembayaran berhasil dibuat.'
+                        : 'Work Order berhasil dibuat.'
+                );
+        });
+    }
+
+    public function show(WorkOrder $workOrder)
+    {
+        $workOrder->load([
+            'customer',
+            'items.product.category',
+            'items.service',
+            'additionalCharges',
+            'payments',
+        ]);
+
+        return view('work_orders.show', compact('workOrder'));
+    }
+
+    public function edit(WorkOrder $workOrder)
+    {
+        if ($workOrder->status === 'COMPLETED') {
+            return redirect()
+                ->route('work-orders.show', $workOrder)
+                ->with('error', 'Work Order yang sudah FINAL tidak dapat diedit.');
+        }
+
+        $workOrder->load([
+            'customer',
+            'items.product.category',
+            'items.service',
+        ]);
+
+        $customers = Customer::where('is_active', true)
+            ->orderBy('name')
+            ->get();
+
+        $products = Product::where('is_active', true)
+            ->orderBy('name')
+            ->get();
+
+        $services = Service::where('is_active', true)
+            ->orderBy('name')
+            ->get();
+
+        return view('work_orders.edit', compact(
+            'workOrder',
+            'customers',
+            'products',
+            'services'
+        ));
+    }
+
+    public function update(Request $request, WorkOrder $workOrder)
+    {
+        if ($workOrder->status === 'COMPLETED') {
+            return redirect()
+                ->route('work-orders.show', $workOrder)
+                ->with(
+                    'error',
+                    'Work Order yang sudah FINAL tidak dapat diedit.'
+                );
+        }
+
+        $validated = $this->validateWorkOrder(
+            $request,
+            $workOrder
+        );
+
+        return DB::transaction(function () use (
+            $request,
+            $validated,
+            $workOrder
+        ) {
+
+            $customer = $this->resolveCustomer(
+                $validated
+            );
+
+            /*
+             * ====================================================
+             * SIMPAN PAYMENT LAMA
+             * ====================================================
+             */
+
+            $totalPaidBefore = (float) $workOrder
+                ->payments()
+                ->sum('amount');
+
+            /*
+             * ====================================================
+             * UPDATE WORK ORDER
+             * ====================================================
+             */
+
+            $workOrder->update([
+                'code' =>
+                    $validated['code'],
+
+                'status' =>
+                    $validated['status']
+                    ?? $workOrder->status,
+
+                'customer_id' =>
+                    $customer->id,
+
+                'type' =>
+                    $validated['type']
+                    ?? 'REGULAR',
+
+                'opened_at' =>
+                    $validated['opened_at']
+                    ?? $workOrder->opened_at,
+
+                'complaint' =>
+                    $validated['complaint']
+                    ?? null,
+
+                'diagnosis' =>
+                    $validated['diagnosis']
+                    ?? null,
+
+                'notes' =>
+                    $validated['notes']
+                    ?? null,
+
+                'discount' =>
+                    $validated['discount']
+                    ?? 0,
+            ]);
+
+            /*
+             * ====================================================
+             * REBUILD ITEM WO
+             * ====================================================
+             */
+
+            $workOrder->items()->delete();
+
+            $subtotal = $this->saveItems(
+                $workOrder,
+                $request->input('items', [])
+            );
+
+            $discount = (float) (
+                $validated['discount'] ?? 0
+            );
+
+            $grandTotal = max(
+                0,
+                $subtotal - $discount
+            );
+
+            $workOrder->update([
+                'subtotal' =>
+                    $subtotal,
+
+                'grand_total' =>
+                    $grandTotal,
+            ]);
+
+            /*
+             * ====================================================
+             * HITUNG SISA TAGIHAN
+             * ====================================================
+             */
+
+            $remainingBeforeNewPayment = max(
+                0,
+                $grandTotal - $totalPaidBefore
+            );
+
+            /*
+             * ====================================================
+             * PAYMENT BARU SAAT EDIT
+             * ====================================================
+             */
+
+            $paymentAmount = (float) (
+                $validated['payment_amount'] ?? 0
+            );
+
+            if ($paymentAmount > 0) {
+
+                if (
+                    $paymentAmount >
+                    $remainingBeforeNewPayment
+                ) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'payment_amount' =>
+                            'Jumlah pembayaran melebihi sisa tagihan Work Order. Sisa tagihan saat ini: Rp ' .
+                            number_format(
+                                $remainingBeforeNewPayment,
+                                0,
+                                ',',
+                                '.'
+                            ),
+                    ]);
+                }
+
+                $paymentMethod =
+                    $validated['payment_method']
+                    ?? null;
+
+                if (!$paymentMethod) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'payment_method' =>
+                            'Metode pembayaran wajib dipilih jika ada pembayaran.',
+                    ]);
+                }
+
+                $workOrder->payments()->create([
+                    'code' =>
+                        'PAY-' .
+                        now()->format('YmdHisv'),
+
+                    'paid_at' =>
+                        $validated['payment_paid_at']
+                        ?? now(),
+
+                    'amount' =>
+                        $paymentAmount,
+
+                    'method' =>
+                        $paymentMethod,
+
+                    'reference_number' =>
+                        $validated[
+                            'payment_reference_number'
+                        ] ?? null,
+
+                    'notes' =>
+                        $validated[
+                            'payment_notes'
+                        ] ?? null,
+                ]);
+            }
+
+            /*
+             * ====================================================
+             * HASIL AKHIR PAYMENT
+             * ====================================================
+             */
+
+            $totalPaidAfter = (float) $workOrder
+                ->payments()
+                ->sum('amount');
+
+            $remainingAfterPayment = max(
+                0,
+                $grandTotal - $totalPaidAfter
+            );
+
+            if ($remainingAfterPayment <= 0) {
+
+                $message =
+                    'Work Order berhasil diperbarui dan pembayaran sudah LUNAS.';
+
+            } elseif ($paymentAmount > 0) {
+
+                $message =
+                    'Work Order dan pembayaran berhasil diperbarui. Sisa tagihan: Rp ' .
+                    number_format(
+                        $remainingAfterPayment,
+                        0,
+                        ',',
+                        '.'
+                    );
+
+            } else {
+
+                $message =
+                    'Work Order berhasil diperbarui. Sisa tagihan: Rp ' .
+                    number_format(
+                        $remainingAfterPayment,
+                        0,
+                        ',',
+                        '.'
+                    );
+            }
+
+            return redirect()
+                ->route(
+                    'work-orders.show',
+                    $workOrder
+                )
+                ->with(
+                    'success',
+                    $message
+                );
+        });
+    }
+
+    public function destroy(WorkOrder $workOrder)
+    {
+        if ($workOrder->status === 'COMPLETED') {
+            return redirect()
+                ->route('work-orders.index')
+                ->with('error', 'Work Order yang sudah FINAL tidak dapat dihapus.');
+        }
+
+        $workOrder->delete();
+
+        return redirect()
+            ->route('work-orders.index')
+            ->with('success', 'Work Order berhasil dihapus.');
+    }
+
+    public function final(WorkOrder $workOrder)
+    {
+        if ($workOrder->status === 'COMPLETED') {
+            return redirect()
+                ->route('work-orders.show', $workOrder)
+                ->with('error', 'Work Order sudah FINAL.');
+        }
+
+        $workOrder->update([
+            'status' => 'COMPLETED',
+            'completed_at' => now(),
+        ]);
+
+        return redirect()
+            ->route('work-orders.show', $workOrder)
+            ->with('success', 'Work Order berhasil di-FINAL.');
+    }
+
+    private function validateWorkOrder(
+        Request $request,
+        ?WorkOrder $workOrder = null
+    ): array {
+
+        return $request->validate([
+            'code' => [
+                'required',
+                'string',
+                'max:30',
+                Rule::unique('work_orders', 'code')
+                    ->ignore($workOrder?->id),
+            ],
+
+            'status' => [
+                'nullable',
+                Rule::in([
+                    'OPEN',
+                    'IN_PROGRESS',
+                    'WAITING_PARTS',
+                    'COMPLETED',
+                    'CANCELLED',
+                ]),
+            ],
+
+            'type' => [
+                'required',
+                Rule::in(['REGULAR', 'WARRANTY']),
+            ],
+
+            'opened_at' => 'nullable|date',
+            'complaint' => 'nullable|string',
+            'diagnosis' => 'nullable|string',
+            'notes' => 'nullable|string',
+            'discount' => 'nullable|numeric|min:0',
+
+            /*
+             * CUSTOMER
+             */
+            'customer_mode' => [
+                'required',
+                Rule::in(['EXISTING', 'NEW']),
+            ],
+
+            'customer_id' => 'nullable|integer|exists:customers,id',
+            'customer_code' => 'nullable|string|max:30',
+            'customer_name' => 'nullable|string|max:255',
+            'customer_phone' => 'nullable|string|max:30',
+            'customer_plate_number' => 'nullable|string|max:30',
+            'customer_brand' => 'nullable|string|max:100',
+            'customer_type' => 'nullable|string|max:100',
+            'customer_notes' => 'nullable|string',
+
+            /*
+             * PAYMENT
+             */
+            'payment_amount' => 'nullable|numeric|gt:0',
+
+            'payment_paid_at' => 'nullable|date',
+
+            'payment_method' => [
+                'nullable',
+                Rule::in([
+                    'CASH',
+                    'BANK_TRANSFER',
+                    'DEBIT_CARD',
+                    'CREDIT_CARD',
+                    'QRIS',
+                    'OTHER',
+                ]),
+            ],
+
+            'payment_reference_number' =>
+                'nullable|string|max:100',
+
+            'payment_notes' =>
+                'nullable|string',
+
+            /*
+             * ITEMS
+             */
+            'items' => 'nullable|array',
+
+            'items.*.item_type' => [
+                'nullable',
+                Rule::in(['SERVICE', 'PRODUCT']),
+            ],
+
+            'items.*.mode' => [
+                'nullable',
+                Rule::in(['EXISTING', 'NEW']),
+            ],
+
+            'items.*.service_id' => 'nullable|integer|exists:services,id',
+            'items.*.product_id' => 'nullable|integer|exists:products,id',
+
+            /*
+             * SERVICE MASTER
+             */
+            'items.*.service_code' => 'nullable|string|max:50',
+            'items.*.service_name' => 'nullable|string|max:255',
+            'items.*.service_default_price' => 'nullable|numeric|min:0',
+            'items.*.service_description' => 'nullable|string',
+            'items.*.service_estimated_duration' => 'nullable|integer|min:0',
+
+            /*
+             * PRODUCT MASTER
+             */
+            'items.*.product_code' => 'nullable|string|max:50',
+            'items.*.product_category_name' => 'nullable|string|max:255',
+            'items.*.product_barcode' => 'nullable|string|max:100',
+            'items.*.product_name' => 'nullable|string|max:255',
+            'items.*.product_brand' => 'nullable|string|max:100',
+            'items.*.product_unit' => 'nullable|string|max:20',
+            'items.*.product_stock_type' => 'nullable|in:STOCK,NON_STOCK',
+            'items.*.product_purchase_price' => 'nullable|numeric|min:0',
+            'items.*.product_selling_price' => 'nullable|numeric|min:0',
+            'items.*.product_minimum_stock' => 'nullable|numeric|min:0',
+
+            /*
+             * ITEM USAGE
+             */
+            'items.*.quantity' => 'nullable|numeric|min:0.001',
+            'items.*.discount_amount' => 'nullable|numeric|min:0',
+            'items.*.notes' => 'nullable|string',
+        ]);
+    }
+
+    private function resolveCustomer(array $validated): Customer
+    {
+        if (($validated['customer_mode'] ?? 'EXISTING') === 'EXISTING') {
+
+            $customer = Customer::find(
+                $validated['customer_id'] ?? null
+            );
+
+            if (!$customer) {
+                abort(
+                    422,
+                    'Customer tidak ditemukan.'
+                );
+            }
+
+            return $customer;
+        }
+
+        $name = trim(
+            $validated['customer_name'] ?? ''
+        );
+
+        if ($name === '') {
+            abort(
+                422,
+                'Nama customer wajib diisi.'
+            );
+        }
+
+        $code = trim(
+            $validated['customer_code'] ?? ''
+        );
+
+        if ($code === '') {
+            $code = $this->generateCode(
+                'CUS-',
+                'customers',
+                'code'
+            );
+        }
+
+        return Customer::create([
+            'code' => $code,
+            'name' => $name,
+            'phone' => trim(
+                $validated['customer_phone'] ?? ''
+            ) ?: null,
+            'plate_number' => strtoupper(
+                trim($validated['customer_plate_number'] ?? '')
+            ) ?: null,
+            'brand' => trim(
+                $validated['customer_brand'] ?? ''
+            ) ?: null,
+            'type' => trim(
+                $validated['customer_type'] ?? ''
+            ) ?: null,
+            'notes' => trim(
+                $validated['customer_notes'] ?? ''
+            ) ?: null,
+            'is_active' => true,
+        ]);
+    }
+
+    private function saveItems(
+        WorkOrder $workOrder,
+        array $items
+    ): float {
+
+        $subtotal = 0;
+
+        foreach ($items as $item) {
+
+            $quantity = (float) (
+                $item['quantity'] ?? 0
+            );
+
+            if ($quantity <= 0) {
+                continue;
+            }
+
+            $itemType = $item['item_type'] ?? 'SERVICE';
+            $mode = $item['mode'] ?? 'EXISTING';
+
+            $serviceId = null;
+            $productId = null;
+            $itemCode = null;
+            $itemName = null;
+            $unit = 'JASA';
+            $unitPrice = 0;
+            $unitCost = 0;
+
+            /*
+             * ====================================================
+             * JASA
+             * ====================================================
+             */
+            if ($itemType === 'SERVICE') {
+
+                if ($mode === 'NEW') {
+
+                    $serviceCode = trim(
+                        $item['service_code'] ?? ''
+                    );
+
+                    if ($serviceCode === '') {
+                        $serviceCode = $this->generateCode(
+                            'JS-',
+                            'services',
+                            'code'
+                        );
+                    }
+
+                    $serviceName = trim(
+                        $item['service_name'] ?? ''
+                    );
+
+                    if ($serviceName === '') {
+                        continue;
+                    }
+
+                    $service = Service::firstOrCreate(
+                        [
+                            'code' => $serviceCode,
+                        ],
+                        [
+                            'name' => $serviceName,
+                            'description' =>
+                                trim($item['service_description'] ?? '') ?: null,
+                            'default_price' =>
+                                (float) ($item['service_default_price'] ?? 0),
+                            'estimated_duration' =>
+                                (int) ($item['service_estimated_duration'] ?? 0),
+                            'is_active' => true,
+                        ]
+                    );
+
+                    /*
+                     * Kalau kode sudah ada, tetap sinkronkan
+                     * data master dari input baru.
+                     */
+                    $service->update([
+                        'name' => $serviceName,
+                        'description' =>
+                            trim($item['service_description'] ?? '') ?: null,
+                        'default_price' =>
+                            (float) ($item['service_default_price'] ?? 0),
+                        'estimated_duration' =>
+                            (int) ($item['service_estimated_duration'] ?? 0),
+                        'is_active' => true,
+                    ]);
+
+                } else {
+
+                    $service = Service::find(
+                        $item['service_id'] ?? null
+                    );
+
+                    if (!$service) {
+                        continue;
+                    }
+                }
+
+                $serviceId = $service->id;
+                $itemCode = $service->code;
+                $itemName = $service->name;
+                $unit = 'JASA';
+                $unitPrice = (float) $service->default_price;
+
+            /*
+             * ====================================================
+             * SPAREPART
+             * ====================================================
+             */
+            } else {
+
+                if ($mode === 'NEW') {
+
+                    $productCode = trim(
+                        $item['product_code'] ?? ''
+                    );
+
+                    if ($productCode === '') {
+                        $productCode = $this->generateCode(
+                            'SP-',
+                            'products',
+                            'code'
+                        );
+                    }
+
+                    $productName = trim(
+                        $item['product_name'] ?? ''
+                    );
+
+                    if ($productName === '') {
+                        continue;
+                    }
+
+                    $categoryName = trim(
+                        $item['product_category_name'] ?? ''
+                    );
+
+                    if ($categoryName !== '') {
+
+                        $category = ProductCategory::firstOrCreate(
+                            [
+                                'name' => $categoryName,
+                            ],
+                            [
+                                'code' => $this->generateCategoryCode(
+                                    $categoryName
+                                ),
+                                'is_active' => true,
+                            ]
+                        );
+
+                    } else {
+
+                        $category = ProductCategory::firstOrCreate(
+                            [
+                                'code' => 'SPAREPART-MANUAL',
+                            ],
+                            [
+                                'name' => 'Sparepart Manual',
+                                'description' =>
+                                    'Kategori default sparepart dari Work Order.',
+                                'is_active' => true,
+                            ]
+                        );
+                    }
+
+                    $product = Product::firstOrCreate(
+                        [
+                            'code' => $productCode,
+                        ],
+                        [
+                            'category_id' => $category->id,
+                            'barcode' =>
+                                trim($item['product_barcode'] ?? '') ?: null,
+                            'name' => $productName,
+                            'brand' =>
+                                trim($item['product_brand'] ?? '') ?: null,
+                            'unit' =>
+                                trim($item['product_unit'] ?? 'PCS') ?: 'PCS',
+                            'stock_type' =>
+                                $item['product_stock_type'] ?? 'STOCK',
+                            'default_purchase_price' =>
+                                (float) ($item['product_purchase_price'] ?? 0),
+                            'default_selling_price' =>
+                                (float) ($item['product_selling_price'] ?? 0),
+                            'minimum_stock' =>
+                                (float) ($item['product_minimum_stock'] ?? 0),
+                            'is_active' => true,
+                        ]
+                    );
+
+                    $product->update([
+                        'category_id' => $category->id,
+                        'barcode' =>
+                            trim($item['product_barcode'] ?? '') ?: null,
+                        'name' => $productName,
+                        'brand' =>
+                            trim($item['product_brand'] ?? '') ?: null,
+                        'unit' =>
+                            trim($item['product_unit'] ?? 'PCS') ?: 'PCS',
+                        'stock_type' =>
+                            $item['product_stock_type'] ?? 'STOCK',
+                        'default_purchase_price' =>
+                            (float) ($item['product_purchase_price'] ?? 0),
+                        'default_selling_price' =>
+                            (float) ($item['product_selling_price'] ?? 0),
+                        'minimum_stock' =>
+                            (float) ($item['product_minimum_stock'] ?? 0),
+                        'is_active' => true,
+                    ]);
+
+                } else {
+
+                    $product = Product::find(
+                        $item['product_id'] ?? null
+                    );
+
+                    if (!$product) {
+                        continue;
+                    }
+                }
+
+                $productId = $product->id;
+                $itemCode = $product->code;
+                $itemName = $product->name;
+                $unit = $product->unit ?: 'PCS';
+
+                $unitPrice = (float) $product->default_selling_price;
+                $unitCost = (float) $product->default_purchase_price;
+            }
+
+            $discountAmount = (float) (
+                $item['discount_amount'] ?? 0
+            );
+
+            $lineSubtotal = max(
+                0,
+                ($quantity * $unitPrice) - $discountAmount
+            );
+
+            $totalCost = $quantity * $unitCost;
+
+            WorkOrderItem::create([
+                'work_order_id' => $workOrder->id,
+                'item_type' => $itemType,
+                'service_id' => $serviceId,
+                'product_id' => $productId,
+                'item_code' => $itemCode,
+                'item_name' => $itemName,
+                'unit' => $unit,
+                'quantity' => $quantity,
+                'unit_price' => $unitPrice,
+                'discount_amount' => $discountAmount,
+                'subtotal' => $lineSubtotal,
+                'unit_cost' => $unitCost,
+                'total_cost' => $totalCost,
+                'status' => 'PENDING',
+                'notes' => $item['notes'] ?? null,
+            ]);
+
+            /*
+             * Untuk sparepart:
+             *
+             * Master Product TIDAK dihapus walaupun stock 0.
+             *
+             * Pengurangan stock mengikuti sistem inventory
+             * yang sudah ada. Script ini tidak membuat tabel stock
+             * baru agar tidak merusak struktur ERD.
+             */
+            if (
+                $itemType === 'PRODUCT' &&
+                $productId
+            ) {
+                $this->consumeInventory(
+                    $product,
+                    $quantity,
+                    $workOrder
+                );
+            }
+
+            $subtotal += $lineSubtotal;
+        }
+
+        return $subtotal;
+    }
+
+    private function consumeInventory(
+        Product $product,
+        float $quantity,
+        WorkOrder $workOrder
+    ): void {
+
+        /*
+         * Semua pemakaian stok Work Order sekarang
+         * wajib melalui FIFO service.
+         */
+        app(InventoryFifoService::class)
+            ->consumeForWorkOrder(
+                $workOrder,
+                $product->id,
+                $quantity
+            );
+    }
+
+    private function generateCode(
+        string $prefix,
+        string $table,
+        string $column
+    ): string {
+
+        do {
+            $code = $prefix . strtoupper(
+                Str::random(8)
+            );
+        } while (
+            DB::table($table)
+                ->where($column, $code)
+                ->exists()
+        );
+
+        return $code;
+    }
+
+    private function generateCategoryCode(
+        string $name
+    ): string {
+
+        $base = strtoupper(
+            Str::slug($name, '-')
+        );
+
+        $base = substr($base, 0, 15);
+
+        if ($base === '') {
+            $base = 'CATEGORY';
+        }
+
+        $code = $base;
+        $counter = 1;
+
+        while (
+            ProductCategory::where(
+                'code',
+                $code
+            )->exists()
+        ) {
+            $code = $base . '-' . $counter;
+            $counter++;
+        }
+
+        return $code;
+    }
+}
+

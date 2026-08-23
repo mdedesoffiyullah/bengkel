@@ -1,0 +1,1271 @@
+﻿@extends('layouts.app')
+
+@section('content')
+
+<div class="max-w-7xl mx-auto space-y-6">
+
+    <div class="flex items-center justify-between">
+        <div>
+            <h1 class="text-2xl font-bold text-gray-900">
+                Buat Work Order
+            </h1>
+            <p class="mt-1 text-sm text-gray-500">
+                Customer, jasa, dan sparepart dapat dibuat langsung dari Work Order.
+            </p>
+        </div>
+
+        <a href="{{ route('work-orders.index') }}"
+           class="px-4 py-2 rounded-lg border bg-white hover:bg-gray-50">
+            Kembali
+        </a>
+    </div>
+
+    @if ($errors->any())
+        <div class="rounded-lg bg-red-50 border border-red-200 p-4 text-red-700">
+            <div class="font-semibold mb-2">Periksa data berikut:</div>
+            <ul class="list-disc ml-5 text-sm space-y-1">
+                @foreach ($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+
+    <form method="POST"
+          action="{{ route('work-orders.store') }}"
+          class="space-y-6">
+        @csrf
+
+        <div class="bg-white rounded-xl border shadow-sm p-6">
+
+            <h2 class="text-lg font-semibold">
+                Informasi Work Order
+            </h2>
+
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-5 mt-5">
+
+                <div>
+                    <label class="block text-sm font-medium mb-1">
+                        Kode WO *
+                    </label>
+
+                    <input type="text"
+                           name="code"
+                           value="{{ old('code', $nextCode) }}"
+                           required
+                           class="w-full rounded-lg border-gray-300">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium mb-1">
+                        Status *
+                    </label>
+
+                    <select name="status"
+                            class="w-full rounded-lg border-gray-300">
+                        <option value="OPEN">OPEN</option>
+                        <option value="IN_PROGRESS">IN PROGRESS</option>
+                        <option value="WAITING_PARTS">WAITING PARTS</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium mb-1">
+                        Tipe WO *
+                    </label>
+
+                    <select name="type"
+                            class="w-full rounded-lg border-gray-300">
+                        <option value="REGULAR">REGULAR</option>
+                        <option value="WARRANTY">WARRANTY</option>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium mb-1">
+                        Dibuka
+                    </label>
+
+                    <input type="datetime-local"
+                           name="opened_at"
+                           value="{{ old('opened_at', now()->format('Y-m-d\TH:i')) }}"
+                           class="w-full rounded-lg border-gray-300">
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <div class="bg-white rounded-xl border shadow-sm p-6">
+
+            <div class="flex items-center justify-between">
+
+                <div>
+                    <h2 class="text-lg font-semibold">
+                        Customer & Kendaraan
+                    </h2>
+
+                    <p class="text-sm text-gray-500 mt-1">
+                        Satu customer menyimpan data satu motor.
+                    </p>
+                </div>
+
+                <button type="button"
+                        onclick="setCustomerMode('NEW')"
+                        class="px-4 py-2 rounded-lg bg-slate-900 text-white text-sm">
+                    + Customer Baru
+                </button>
+
+            </div>
+
+            <div class="mt-5">
+
+                <label class="block text-sm font-medium mb-1">
+                    Customer *
+                </label>
+
+                <select id="customer_id"
+                        name="customer_id"
+                        onchange="setCustomerMode('EXISTING')"
+                        class="w-full rounded-lg border-gray-300">
+
+                    <option value="">
+                        -- Pilih Customer --
+                    </option>
+
+                    @foreach($customers as $customer)
+                        <option value="{{ $customer->id }}"
+                                {{ old('customer_id') == $customer->id ? 'selected' : '' }}>
+                            {{ $customer->code }} - {{ $customer->name }}
+                            @if($customer->plate_number)
+                                | {{ $customer->plate_number }}
+                            @endif
+                        </option>
+                    @endforeach
+
+                </select>
+
+                <input type="hidden"
+                       id="customer_mode"
+                       name="customer_mode"
+                       value="{{ old('customer_mode', 'EXISTING') }}">
+            </div>
+
+            <div id="newCustomerBox"
+                 class="hidden mt-6 border-t pt-6">
+
+                <div class="flex items-center justify-between mb-4">
+                    <h3 class="font-semibold">
+                        Customer Baru
+                    </h3>
+
+                    <button type="button"
+                            onclick="setCustomerMode('EXISTING')"
+                            class="text-sm text-blue-600">
+                        Pilih Customer Existing
+                    </button>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">
+
+                    <div>
+                        <label class="block text-sm font-medium mb-1">
+                            Kode Customer
+                        </label>
+
+                        <input name="customer_code"
+                               value="{{ old('customer_code') }}"
+                               class="w-full rounded-lg border-gray-300">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium mb-1">
+                            Nama Customer *
+                        </label>
+
+                        <input name="customer_name"
+                               value="{{ old('customer_name') }}"
+                               class="w-full rounded-lg border-gray-300">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium mb-1">
+                            No. Telepon
+                        </label>
+
+                        <input name="customer_phone"
+                               value="{{ old('customer_phone') }}"
+                               class="w-full rounded-lg border-gray-300">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium mb-1">
+                            Plat Nomor
+                        </label>
+
+                        <input name="customer_plate_number"
+                               value="{{ old('customer_plate_number') }}"
+                               class="w-full rounded-lg border-gray-300">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium mb-1">
+                            Brand Motor
+                        </label>
+
+                        <input name="customer_brand"
+                               value="{{ old('customer_brand') }}"
+                               class="w-full rounded-lg border-gray-300">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium mb-1">
+                            Tipe Motor
+                        </label>
+
+                        <input name="customer_type"
+                               value="{{ old('customer_type') }}"
+                               class="w-full rounded-lg border-gray-300">
+                    </div>
+
+                    <div class="md:col-span-2">
+                        <label class="block text-sm font-medium mb-1">
+                            Catatan
+                        </label>
+
+                        <textarea name="customer_notes"
+                                  rows="2"
+                                  class="w-full rounded-lg border-gray-300">{{ old('customer_notes') }}</textarea>
+                    </div>
+
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <div class="bg-white rounded-xl border shadow-sm p-6">
+
+            <div>
+                <h2 class="text-lg font-semibold">
+                    Keluhan & Diagnosa
+                </h2>
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-5 mt-5">
+
+                <div>
+                    <label class="block text-sm font-medium mb-1">
+                        Keluhan
+                    </label>
+
+                    <textarea name="complaint"
+                              rows="4"
+                              class="w-full rounded-lg border-gray-300">{{ old('complaint') }}</textarea>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium mb-1">
+                        Diagnosa
+                    </label>
+
+                    <textarea name="diagnosis"
+                              rows="4"
+                              class="w-full rounded-lg border-gray-300">{{ old('diagnosis') }}</textarea>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium mb-1">
+                        Catatan
+                    </label>
+
+                    <textarea name="notes"
+                              rows="4"
+                              class="w-full rounded-lg border-gray-300">{{ old('notes') }}</textarea>
+                </div>
+
+            </div>
+
+        </div>
+
+
+        <div class="bg-white rounded-xl border shadow-sm p-6">
+
+            <div class="flex items-center justify-between">
+                <div>
+                    <h2 class="text-lg font-semibold">
+                        Item Pekerjaan
+                    </h2>
+
+                    <p class="text-sm text-gray-500 mt-1">
+                        Jasa dan sparepart langsung dimasukkan di Work Order.
+                    </p>
+                </div>
+
+                <button type="button"
+                        onclick="addItem()"
+                        class="px-4 py-2 rounded-lg bg-slate-900 text-white">
+                    + Tambah Item
+                </button>
+            </div>
+
+            <div id="itemsContainer" class="space-y-5 mt-6"></div>
+
+            <div class="mt-8 grid grid-cols-1 md:grid-cols-2 gap-6 items-end">
+
+    <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">
+            Discount WO
+        </label>
+
+        <input
+            type="number"
+            step="0.01"
+            min="0"
+            name="discount"
+            value="{{ old('discount', 0) }}"
+            class="w-full md:w-64 rounded-lg border-gray-300 text-right focus:border-slate-500 focus:ring-slate-500"
+        >
+
+        @error('discount')
+            <p class="mt-1 text-sm text-red-600">
+                {{ $message }}
+            </p>
+        @enderror
+    </div>
+
+    <div class="text-right border-t pt-4">
+
+        <p class="text-sm text-gray-500">
+            Grand Total
+        </p>
+
+        <p
+            id="grand_total"
+            class="mt-1 text-2xl font-bold text-gray-900"
+        >
+            Rp 0
+        </p>
+
+    </div>
+
+</div>
+
+</div>
+
+
+        <div class="flex justify-end gap-3">
+
+            <a href="{{ route('work-orders.index') }}"
+               class="px-5 py-3 rounded-lg border bg-white">
+                Batal
+            </a>
+
+            <button type="submit"
+                    class="px-6 py-3 rounded-lg bg-green-600 text-white font-semibold">
+                Simpan Work Order
+            </button>
+
+        </div>
+
+
+    {{-- =========================================================
+         PAYMENT
+    ========================================================== --}}
+
+    <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6 mt-6">
+
+        <div class="mb-5">
+
+            <h2 class="text-lg font-semibold text-gray-900">
+                Pembayaran
+            </h2>
+
+            <p class="text-sm text-gray-500 mt-1">
+                Pembayaran dapat langsung dicatat saat Work Order dibuat.
+            </p>
+
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                    Nominal Pembayaran
+                </label>
+
+                <input
+                    type="number"
+                    name="payment_amount"
+                    id="payment_amount"
+                    step="0.01"
+                    min="0"
+                    value="{{ old('payment_amount') }}"
+                    class="w-full rounded-lg border-gray-300 focus:border-slate-500 focus:ring-slate-500"
+                    placeholder="0"
+                >
+
+                @error('payment_amount')
+                    <p class="mt-1 text-sm text-red-600">
+                        {{ $message }}
+                    </p>
+                @enderror
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                    Metode Pembayaran
+                </label>
+
+                <select
+                    name="payment_method"
+                    id="payment_method"
+                    class="w-full rounded-lg border-gray-300 focus:border-slate-500 focus:ring-slate-500"
+                >
+                    <option value="">-- Pilih Metode --</option>
+
+                    <option value="CASH" @selected(old('payment_method') === 'CASH')>
+                        Cash
+                    </option>
+
+                    <option value="BANK_TRANSFER" @selected(old('payment_method') === 'BANK_TRANSFER')>
+                        Bank Transfer
+                    </option>
+
+                    <option value="DEBIT_CARD" @selected(old('payment_method') === 'DEBIT_CARD')>
+                        Debit Card
+                    </option>
+
+                    <option value="CREDIT_CARD" @selected(old('payment_method') === 'CREDIT_CARD')>
+                        Credit Card
+                    </option>
+
+                    <option value="QRIS" @selected(old('payment_method') === 'QRIS')>
+                        QRIS
+                    </option>
+
+                    <option value="OTHER" @selected(old('payment_method') === 'OTHER')>
+                        Other
+                    </option>
+
+                </select>
+
+                @error('payment_method')
+                    <p class="mt-1 text-sm text-red-600">
+                        {{ $message }}
+                    </p>
+                @enderror
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                    Tanggal Pembayaran
+                </label>
+
+                <input
+                    type="datetime-local"
+                    name="payment_paid_at"
+                    id="payment_paid_at"
+                    value="{{ old('payment_paid_at', now()->format('Y-m-d\TH:i')) }}"
+                    class="w-full rounded-lg border-gray-300 focus:border-slate-500 focus:ring-slate-500"
+                >
+
+                @error('payment_paid_at')
+                    <p class="mt-1 text-sm text-red-600">
+                        {{ $message }}
+                    </p>
+                @enderror
+            </div>
+
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mt-5">
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                    No. Referensi
+                </label>
+
+                <input
+                    type="text"
+                    name="payment_reference_number"
+                    value="{{ old('payment_reference_number') }}"
+                    class="w-full rounded-lg border-gray-300 focus:border-slate-500 focus:ring-slate-500"
+                    placeholder="Opsional"
+                >
+            </div>
+
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                    Catatan Pembayaran
+                </label>
+
+                <input
+                    type="text"
+                    name="payment_notes"
+                    value="{{ old('payment_notes') }}"
+                    class="w-full rounded-lg border-gray-300 focus:border-slate-500 focus:ring-slate-500"
+                    placeholder="Opsional"
+                >
+            </div>
+
+        </div>
+
+        <div class="mt-5 grid grid-cols-1 md:grid-cols-3 gap-4">
+
+            <div class="rounded-lg bg-gray-50 border border-gray-200 p-4">
+
+                <p class="text-xs text-gray-500">
+                    Sudah Dibayar
+                </p>
+
+                <p class="mt-1 text-lg font-bold text-gray-900">
+                    Rp 0
+                </p>
+
+            </div>
+
+            <div class="rounded-lg bg-yellow-50 border border-yellow-200 p-4">
+
+                <p class="text-xs text-yellow-700">
+                    Sisa Tagihan
+                </p>
+
+                <p
+                    id="payment_remaining"
+                    class="mt-1 text-lg font-bold text-yellow-800"
+                >
+                    Rp 0
+                </p>
+
+            </div>
+
+            <div class="rounded-lg bg-green-50 border border-green-200 p-4">
+
+                <p class="text-xs text-green-700">
+                    Status
+                </p>
+
+                <p
+                    id="payment_status"
+                    class="mt-1 text-lg font-bold text-green-800"
+                >
+                    Belum Dibayar
+                </p>
+
+            </div>
+
+        </div>
+
+    </div>
+
+    </form>
+
+</div>
+
+
+<script>
+
+let itemIndex = 0;
+
+const services = @json($services);
+const products = @json($products);
+
+function setCustomerMode(mode)
+{
+    const hidden = document.getElementById('customer_mode');
+    const box = document.getElementById('newCustomerBox');
+    const select = document.getElementById('customer_id');
+
+    hidden.value = mode;
+
+    if (mode === 'NEW') {
+        box.classList.remove('hidden');
+        select.value = '';
+    } else {
+        box.classList.add('hidden');
+    }
+}
+
+function addItem()
+{
+    const index = itemIndex++;
+
+    const html = `
+        <div class="border rounded-xl p-5 item-row"
+             data-index="${index}">
+
+            <div class="flex items-center justify-between mb-5">
+
+                <div class="font-semibold">
+                    Item #${index + 1}
+                </div>
+
+                <button type="button"
+                        onclick="this.closest('.item-row').remove()"
+                        class="text-red-600 text-sm">
+                    Hapus
+                </button>
+
+            </div>
+
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+
+                <div>
+                    <label class="block text-sm font-medium mb-1">
+                        Tipe
+                    </label>
+
+                    <select name="items[${index}][item_type]"
+                            onchange="changeItemType(${index}, this.value)"
+                            class="w-full rounded-lg border-gray-300">
+
+                        <option value="SERVICE">
+                            Jasa
+                        </option>
+
+                        <option value="PRODUCT">
+                            Sparepart
+                        </option>
+
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium mb-1">
+                        Sumber
+                    </label>
+
+                    <select name="items[${index}][mode]"
+                            onchange="changeItemMode(${index}, this.value)"
+                            class="w-full rounded-lg border-gray-300">
+
+                        <option value="EXISTING">
+                            Master
+                        </option>
+
+                        <option value="NEW">
+                            Tambah Baru
+                        </option>
+
+                    </select>
+                </div>
+
+                <div class="md:col-span-2 existing-select"
+                     id="existing-${index}">
+
+                    <label class="block text-sm font-medium mb-1">
+                        Item
+                    </label>
+
+                    <select name="items[${index}][service_id]"
+                            id="service-select-${index}"
+                            class="w-full rounded-lg border-gray-300">
+
+                        ${serviceOptions()}
+
+                    </select>
+
+                    <select name="items[${index}][product_id]"
+                            id="product-select-${index}"
+                            class="hidden w-full rounded-lg border-gray-300">
+
+                        ${productOptions()}
+
+                    </select>
+
+                </div>
+
+            </div>
+
+            <div id="new-service-${index}"
+                 class="hidden mt-5 border-t pt-5">
+
+                <div class="font-semibold mb-4">
+                    Tambahkan Jasa Servis
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+
+                    <div>
+                        <label class="block text-sm font-medium mb-1">
+                            Kode Jasa
+                        </label>
+
+                        <input name="items[${index}][service_code]"
+                               class="w-full rounded-lg border-gray-300">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium mb-1">
+                            Nama Jasa
+                        </label>
+
+                        <input name="items[${index}][service_name]"
+                               class="w-full rounded-lg border-gray-300">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium mb-1">
+                            Harga Default
+                        </label>
+
+                        <input type="number"
+                               step="0.01"
+                               min="0"
+                               name="items[${index}][service_default_price]"
+                               class="w-full rounded-lg border-gray-300">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium mb-1">
+                            Estimasi Durasi
+                        </label>
+
+                        <input type="number"
+                               min="0"
+                               name="items[${index}][service_estimated_duration]"
+                               class="w-full rounded-lg border-gray-300">
+                    </div>
+
+                    <div class="md:col-span-4">
+                        <label class="block text-sm font-medium mb-1">
+                            Deskripsi
+                        </label>
+
+                        <textarea name="items[${index}][service_description]"
+                                  rows="2"
+                                  class="w-full rounded-lg border-gray-300"></textarea>
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <div id="new-product-${index}"
+                 class="hidden mt-5 border-t pt-5">
+
+                <div class="font-semibold mb-4">
+                    Tambahkan Sparepart
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
+
+                    <div>
+                        <label class="block text-sm font-medium mb-1">
+                            Kode Produk
+                        </label>
+
+                        <input name="items[${index}][product_code]"
+                               class="w-full rounded-lg border-gray-300">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium mb-1">
+                            Kategori
+                        </label>
+
+                        <input name="items[${index}][product_category_name]"
+                               class="w-full rounded-lg border-gray-300">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium mb-1">
+                            Barcode
+                        </label>
+
+                        <input name="items[${index}][product_barcode]"
+                               class="w-full rounded-lg border-gray-300">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium mb-1">
+                            Nama Produk
+                        </label>
+
+                        <input name="items[${index}][product_name]"
+                               class="w-full rounded-lg border-gray-300">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium mb-1">
+                            Brand
+                        </label>
+
+                        <input name="items[${index}][product_brand]"
+                               class="w-full rounded-lg border-gray-300">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium mb-1">
+                            Satuan
+                        </label>
+
+                        <input name="items[${index}][product_unit]"
+                               value="PCS"
+                               class="w-full rounded-lg border-gray-300">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium mb-1">
+                            Tipe Stock
+                        </label>
+
+                        <select name="items[${index}][product_stock_type]"
+                                class="w-full rounded-lg border-gray-300">
+
+                            <option value="STOCK">
+                                STOCK
+                            </option>
+
+                            <option value="NON_STOCK">
+                                NON STOCK
+                            </option>
+
+                        </select>
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium mb-1">
+                            Harga Beli / Modal
+                        </label>
+
+                        <input type="number"
+                               step="0.01"
+                               min="0"
+                               name="items[${index}][product_purchase_price]"
+                               class="w-full rounded-lg border-gray-300">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium mb-1">
+                            Harga Jual
+                        </label>
+
+                        <input type="number"
+                               step="0.01"
+                               min="0"
+                               name="items[${index}][product_selling_price]"
+                               class="w-full rounded-lg border-gray-300">
+                    </div>
+
+                    <div>
+                        <label class="block text-sm font-medium mb-1">
+                            Minimum Stock
+                        </label>
+
+                        <input type="number"
+                               step="0.001"
+                               min="0"
+                               name="items[${index}][product_minimum_stock]"
+                               class="w-full rounded-lg border-gray-300">
+                    </div>
+
+                </div>
+
+            </div>
+
+
+            <div class="mt-5 grid grid-cols-1 md:grid-cols-4 gap-4">
+
+                <div>
+                    <label class="block text-sm font-medium mb-1">
+                        Qty
+                    </label>
+
+                    <input type="number"
+                           step="0.001"
+                           min="0.001"
+                           name="items[${index}][quantity]"
+                           value="1"
+                           class="w-full rounded-lg border-gray-300">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium mb-1">
+                        Discount
+                    </label>
+
+                    <input type="number"
+                           step="0.01"
+                           min="0"
+                           name="items[${index}][discount_amount]"
+                           value="0"
+                           class="w-full rounded-lg border-gray-300">
+                </div>
+
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium mb-1">
+                        Catatan Item
+                    </label>
+
+                    <input name="items[${index}][notes]"
+                           class="w-full rounded-lg border-gray-300">
+                </div>
+
+            </div>
+
+        </div>
+    `;
+
+    document
+        .getElementById('itemsContainer')
+        .insertAdjacentHTML('beforeend', html);
+
+    changeItemType(index, 'SERVICE');
+
+    const row =
+        document.querySelector(`[data-index="${index}"]`);
+
+    if (row) {
+        row
+            .querySelectorAll('input, select')
+            .forEach(element => {
+
+                element.addEventListener(
+                    'input',
+                    calculateWorkOrderTotal
+                );
+
+                element.addEventListener(
+                    'change',
+                    calculateWorkOrderTotal
+                );
+
+            });
+    }
+
+    calculateWorkOrderTotal();
+}
+
+function formatRupiah(value)
+{
+    return 'Rp ' + Number(value || 0).toLocaleString('id-ID');
+}
+
+function getItemPrice(row)
+{
+    const type =
+        row.querySelector('select[name*="[item_type]"]')?.value;
+
+    const mode =
+        row.querySelector('select[name*="[mode]"]')?.value;
+
+    /*
+     * ITEM BARU
+     */
+    if (mode === 'NEW') {
+
+        if (type === 'SERVICE') {
+
+            return parseFloat(
+                row.querySelector(
+                    'input[name*="[service_default_price]"]'
+                )?.value || 0
+            );
+
+        }
+
+        return parseFloat(
+            row.querySelector(
+                'input[name*="[product_selling_price]"]'
+            )?.value || 0
+        );
+    }
+
+    /*
+     * ITEM MASTER
+     */
+    if (type === 'SERVICE') {
+
+        const select =
+            row.querySelector(
+                'select[name*="[service_id]"]'
+            );
+
+        const serviceId =
+            parseInt(select?.value || 0);
+
+        const service =
+            services.find(
+                item => Number(item.id) === serviceId
+            );
+
+        return parseFloat(
+            service?.default_price || 0
+        );
+    }
+
+    const select =
+        row.querySelector(
+            'select[name*="[product_id]"]'
+        );
+
+    const productId =
+        parseInt(select?.value || 0);
+
+    const product =
+        products.find(
+            item => Number(item.id) === productId
+        );
+
+    return parseFloat(
+        product?.default_selling_price || 0
+    );
+}
+
+function calculateWorkOrderTotal()
+{
+    let subtotal = 0;
+    let totalItemDiscount = 0;
+
+    document.querySelectorAll('.item-row').forEach(row => {
+
+        const quantity =
+            parseFloat(
+                row.querySelector('input[name*="[quantity]"]')?.value || 0
+            );
+
+        const discount =
+            parseFloat(
+                row.querySelector('input[name*="[discount_amount]"]')?.value || 0
+            );
+
+        const price = getItemPrice(row);
+
+        const lineSubtotal = price * quantity;
+
+        subtotal += lineSubtotal;
+        totalItemDiscount += discount;
+    });
+
+    const woDiscount =
+        parseFloat(
+            document.querySelector('input[name="discount"]')?.value || 0
+        );
+
+    const grandTotal = Math.max(
+        0,
+        subtotal - totalItemDiscount - woDiscount
+    );
+
+    const paymentAmount =
+        parseFloat(
+            document.getElementById('payment_amount')?.value || 0
+        );
+
+    const payment =
+        Math.min(
+            Math.max(paymentAmount, 0),
+            grandTotal
+        );
+
+    const remaining =
+        Math.max(
+            0,
+            grandTotal - payment
+        );
+
+    const paymentRemaining =
+        document.getElementById('payment_remaining');
+
+    const paymentStatus =
+        document.getElementById('payment_status');
+
+    if (paymentRemaining) {
+        paymentRemaining.textContent =
+            formatRupiah(remaining);
+    }
+
+    if (paymentStatus) {
+
+        if (grandTotal <= 0) {
+            paymentStatus.textContent = 'Belum Ada Tagihan';
+        }
+        else if (payment >= grandTotal) {
+            paymentStatus.textContent = 'LUNAS';
+        }
+        else if (payment > 0) {
+            paymentStatus.textContent = 'SEBAGIAN';
+        }
+        else {
+            paymentStatus.textContent = 'BELUM DIBAYAR';
+        }
+    }
+
+    const paymentInput =
+        document.getElementById('payment_amount');
+
+    if (paymentInput) {
+        paymentInput.max = grandTotal.toFixed(2);
+    }
+
+    const grandTotalElement =
+        document.getElementById('grand_total');
+
+    if (grandTotalElement) {
+        grandTotalElement.textContent =
+            formatRupiah(grandTotal);
+    }
+
+    const subtotalElement =
+        document.getElementById('subtotal');
+
+    if (subtotalElement) {
+        subtotalElement.textContent =
+            formatRupiah(subtotal);
+    }
+
+    return {
+        subtotal,
+        totalItemDiscount,
+        woDiscount,
+        grandTotal,
+        payment,
+        remaining
+    };
+}
+
+function attachCalculationListeners()
+{
+    document
+        .querySelectorAll(
+            '#itemsContainer input, #itemsContainer select, input[name="discount"], #payment_amount'
+        )
+        .forEach(element => {
+
+            element.addEventListener(
+                'input',
+                calculateWorkOrderTotal
+            );
+
+            element.addEventListener(
+                'change',
+                calculateWorkOrderTotal
+            );
+        });
+}
+function serviceOptions()
+{
+    let html = '<option value="">-- Pilih Jasa --</option>';
+
+    services.forEach(service => {
+        html += `
+            <option value="${service.id}">
+                ${service.code} - ${service.name}
+            </option>
+        `;
+    });
+
+    return html;
+}
+
+function productOptions()
+{
+    let html = '<option value="">-- Pilih Sparepart --</option>';
+
+    products.forEach(product => {
+        html += `
+            <option value="${product.id}">
+                ${product.code} - ${product.name}
+            </option>
+        `;
+    });
+
+    return html;
+}
+
+function changeItemType(index, type)
+{
+    const serviceSelect =
+        document.getElementById(`service-select-${index}`);
+
+    const productSelect =
+        document.getElementById(`product-select-${index}`);
+
+    if (type === 'SERVICE') {
+
+        serviceSelect.classList.remove('hidden');
+        productSelect.classList.add('hidden');
+
+    } else {
+
+        serviceSelect.classList.add('hidden');
+        productSelect.classList.remove('hidden');
+    }
+
+    changeItemMode(
+        index,
+        document.querySelector(
+            `[data-index="${index}"] select[name="items[${index}][mode]"]`
+        ).value
+    );
+}
+
+function changeItemMode(index, mode)
+{
+    const row =
+        document.querySelector(
+            `[data-index="${index}"]`
+        );
+
+    const type =
+        row.querySelector(
+            `select[name="items[${index}][item_type]"]`
+        ).value;
+
+    const existing =
+        document.getElementById(`existing-${index}`);
+
+    const serviceBox =
+        document.getElementById(`new-service-${index}`);
+
+    const productBox =
+        document.getElementById(`new-product-${index}`);
+
+    if (mode === 'NEW') {
+
+        existing.classList.add('hidden');
+
+        if (type === 'SERVICE') {
+            serviceBox.classList.remove('hidden');
+            productBox.classList.add('hidden');
+        } else {
+            serviceBox.classList.add('hidden');
+            productBox.classList.remove('hidden');
+        }
+
+    } else {
+
+        existing.classList.remove('hidden');
+        serviceBox.classList.add('hidden');
+        productBox.classList.add('hidden');
+    }
+}
+
+setCustomerMode(
+    document.getElementById('customer_mode').value
+);
+
+addItem();
+
+attachCalculationListeners();
+calculateWorkOrderTotal();
+
+</script>
+
+@endsection
+
+
+
+
+
+
+
+
+
+
+
