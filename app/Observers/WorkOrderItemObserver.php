@@ -125,7 +125,8 @@ class WorkOrderItemObserver implements ShouldHandleEventsAfterCommit
             'purchase_id' => $purchase->id,
             'paid_at' => $purchase->received_at ?? now(),
             'amount' => $purchaseTotal,
-            'method' => 'OTHER',
+            // payments.method is currently an enum without OTHER.
+            'method' => 'CASH',
             'reference_number' => null,
             'notes' => 'Pembayaran supplier otomatis dari Work Order ' . $workOrder->code,
         ];
