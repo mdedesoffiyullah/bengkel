@@ -25,17 +25,16 @@ class ProfitLossController extends Controller
         $serviceRevenue = (float) WorkOrderItem::where('item_type', 'SERVICE')->whereHas('workOrder', $completedWo)->sum('subtotal');
         $productRevenue = (float) WorkOrderItem::where('item_type', 'PRODUCT')->whereHas('workOrder', $completedWo)->sum('subtotal');
 
-        // HPP berasal dari FIFO layer consumption aktual.
         $productCost = (float) DB::table('inventory_layer_consumptions as ilc')
             ->join('work_orders as wo', 'wo.id', '=', 'ilc.work_order_id')
             ->where('wo.status', 'COMPLETED')
             ->whereBetween('wo.completed_at', [$start, $end])
             ->sum('ilc.total_cost');
 
-        // Opname minus adalah inventory loss. Opname plus hanya menambah aset inventory.
+        // Stock Opname tidak memiliki approved_at. POSTED menggunakan opname_date sebagai tanggal pencatatan.
         $stockOpnameLoss = (float) StockOpnameItem::query()
             ->where('difference_quantity', '<', 0)
-            ->whereHas('stockOpname', fn ($q) => $q->where('status', 'POSTED')->whereBetween('approved_at', [$start, $end]))
+            ->whereHas('stockOpname', fn ($q) => $q->where('status', 'POSTED')->whereBetween('opname_date', [$startDate, $endDate]))
             ->sum(DB::raw('ABS(difference_value)'));
 
         $operatingExpenses = (float) Expense::whereBetween('expense_date', [$startDate, $endDate])->sum('amount');
