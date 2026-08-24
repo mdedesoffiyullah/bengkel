@@ -34,33 +34,26 @@ class Purchase extends Model
         ];
     }
 
-    /**
-     * Supplier dari purchase.
-     */
     public function supplier(): BelongsTo
     {
         return $this->belongsTo(Supplier::class);
     }
 
-    /**
-     * Work Order yang membutuhkan purchase.
-     */
     public function workOrder(): BelongsTo
     {
         return $this->belongsTo(WorkOrder::class);
     }
 
-    /**
-     * Detail item purchase.
-     */
     public function items(): HasMany
     {
         return $this->hasMany(PurchaseItem::class);
     }
 
-    /**
-     * User yang membuat purchase.
-     */
+    public function payments(): HasMany
+    {
+        return $this->hasMany(Payment::class);
+    }
+
     public function creator(): BelongsTo
     {
         return $this->belongsTo(User::class, 'created_by');
