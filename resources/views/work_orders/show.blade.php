@@ -47,6 +47,15 @@
                 + Buat WO Baru
             </a>
 
+            <a
+                href="{{ route('work-orders.print', $workOrder) }}"
+                target="_blank"
+                rel="noopener"
+                class="inline-flex items-center px-4 py-2 rounded-lg bg-green-600 text-white font-medium hover:bg-green-700 transition"
+            >
+                &#128424; Cetak Nota
+            </a>
+
             @if($workOrder->status !== 'COMPLETED')
                 <a
                     href="{{ route('work-orders.edit', $workOrder) }}"
@@ -811,3 +820,5 @@
 </style>
 
 @endsection
+
+
