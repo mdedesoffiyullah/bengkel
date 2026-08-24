@@ -61,7 +61,7 @@ class WorkOrderController extends Controller
             $workOrder = WorkOrder::create([
                 'code' => $validated['code'],
                 'status' => $validated['status'] ?? 'OPEN',
-                'customer_id' => $customer?->id,
+                'customer_id' => $customer->id,
                 'type' => $validated['type'] ?? 'REGULAR',
                 'opened_at' => $validated['opened_at'] ?? now(),
                 'complaint' => $validated['complaint'] ?? null,
@@ -647,7 +647,7 @@ return $request->validate([
         ]);
     }
 
-    private function resolveCustomer(array $validated): ?Customer
+    private function resolveCustomer(array $validated): Customer
     {
         if (($validated['customer_mode'] ?? 'EXISTING') === 'EXISTING') {
 

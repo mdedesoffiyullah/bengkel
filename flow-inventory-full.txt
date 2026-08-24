@@ -1,0 +1,3865 @@
+﻿============================================================
+FILE: app\Models\WorkOrder.php
+============================================================
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class WorkOrder extends Model
+{
+    protected $fillable = [
+        'code',
+        'customer_id',
+        'opened_at',
+        'completed_at',
+        'cancelled_at',
+        'status',
+        'type',
+        'complaint',
+        'diagnosis',
+        'notes',
+        'started_at',
+        'subtotal',
+        'discount',
+        'grand_total',
+        'cancellation_reason',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'opened_at' => 'datetime',
+            'started_at' => 'datetime',
+            'completed_at' => 'datetime',
+            'cancelled_at' => 'datetime',
+            'subtotal' => 'decimal:2',
+            'discount' => 'decimal:2',
+            'grand_total' => 'decimal:2',
+        ];
+    }
+
+    public function customer(): BelongsTo
+    {
+        return $this->belongsTo(Customer::class);
+    }
+
+    public function items(): HasMany
+    {
+        return $this->hasMany(WorkOrderItem::class);
+    }
+
+    public function additionalCharges(): HasMany
+    {
+        return $this->hasMany(WorkOrderAdditionalCharge::class);
+    }
+
+    public function payments(): HasMany
+    {
+        return $this->hasMany(Payment::class);
+    }
+}
+
+
+============================================================
+FILE: app\Models\WorkOrderItem.php
+============================================================
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class WorkOrderItem extends Model
+{
+    protected $fillable = [
+        'work_order_id',
+        'item_type',
+        'service_id',
+        'product_id',
+
+        // Data barang baru
+        'category_id',
+        'supplier_id',
+        'item_code',
+        'item_name',
+        'barcode',
+        'brand',
+        'unit',
+        'stock_type',
+        'quantity',
+        'minimum_stock',
+
+        // Harga
+        'unit_price',
+        'discount_amount',
+        'unit_cost',
+        'selling_price',
+
+        // Total
+        'subtotal',
+        'total_cost',
+
+        'status',
+        'notes',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'quantity' => 'decimal:3',
+            'minimum_stock' => 'decimal:3',
+
+            'unit_price' => 'decimal:2',
+            'discount_amount' => 'decimal:2',
+            'unit_cost' => 'decimal:2',
+            'selling_price' => 'decimal:2',
+
+            'subtotal' => 'decimal:2',
+            'total_cost' => 'decimal:2',
+        ];
+    }
+
+    public function workOrder(): BelongsTo
+    {
+        return $this->belongsTo(WorkOrder::class);
+    }
+
+    public function service(): BelongsTo
+    {
+        return $this->belongsTo(Service::class);
+    }
+
+    public function product(): BelongsTo
+    {
+        return $this->belongsTo(Product::class);
+    }
+
+    public function category(): BelongsTo
+    {
+        return $this->belongsTo(ProductCategory::class, 'category_id');
+    }
+
+    public function supplier(): BelongsTo
+    {
+        return $this->belongsTo(Supplier::class, 'supplier_id');
+    }
+}
+
+============================================================
+FILE: app\Models\Purchase.php
+============================================================
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class Purchase extends Model
+{
+    protected $fillable = [
+        'code',
+        'supplier_id',
+        'work_order_id',
+        'status',
+        'purchase_type',
+        'purchase_date',
+        'received_at',
+        'subtotal',
+        'discount',
+        'grand_total',
+        'notes',
+        'created_by',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'purchase_date' => 'date',
+            'received_at' => 'datetime',
+            'subtotal' => 'decimal:2',
+            'discount' => 'decimal:2',
+            'grand_total' => 'decimal:2',
+        ];
+    }
+
+    /**
+     * Supplier dari purchase.
+     */
+    public function supplier(): BelongsTo
+    {
+        return $this->belongsTo(Supplier::class);
+    }
+
+    /**
+     * Work Order yang membutuhkan purchase.
+     */
+    public function workOrder(): BelongsTo
+    {
+        return $this->belongsTo(WorkOrder::class);
+    }
+
+    /**
+     * Detail item purchase.
+     */
+    public function items(): HasMany
+    {
+        return $this->hasMany(PurchaseItem::class);
+    }
+
+    /**
+     * User yang membuat purchase.
+     */
+    public function creator(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+}
+
+============================================================
+FILE: app\Models\PurchaseItem.php
+============================================================
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class PurchaseItem extends Model
+{
+    protected $fillable = [
+        'purchase_id',
+        'work_order_item_id',
+        'product_id',
+        'quantity',
+        'unit_cost',
+        'selling_price',
+        'discount_amount',
+        'subtotal',
+        'received_quantity',
+        'notes',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'quantity' => 'decimal:3',
+            'unit_cost' => 'decimal:2',
+            'selling_price' => 'decimal:2',
+            'discount_amount' => 'decimal:2',
+            'subtotal' => 'decimal:2',
+            'received_quantity' => 'decimal:3',
+        ];
+    }
+
+    /**
+     * Purchase induk.
+     */
+    public function purchase(): BelongsTo
+    {
+        return $this->belongsTo(Purchase::class);
+    }
+
+    /**
+     * Produk yang dibeli.
+     */
+    public function product(): BelongsTo
+    {
+        return $this->belongsTo(Product::class);
+    }
+
+    /**
+     * Work Order Item yang menjadi sumber kebutuhan.
+     */
+    public function workOrderItem(): BelongsTo
+    {
+        return $this->belongsTo(
+            WorkOrderItem::class,
+            'work_order_item_id'
+        );
+    }
+}
+
+============================================================
+FILE: app\Models\InventoryBalance.php
+============================================================
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class InventoryBalance extends Model
+{
+    protected $fillable = [
+        'product_id',
+        'quantity',
+        'reserved_quantity',
+        'available_quantity',
+        'average_cost',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'quantity' => 'decimal:3',
+            'reserved_quantity' => 'decimal:3',
+            'available_quantity' => 'decimal:3',
+            'average_cost' => 'decimal:2',
+        ];
+    }
+
+    /**
+     * Produk yang memiliki saldo inventory.
+     */
+    public function product(): BelongsTo
+    {
+        return $this->belongsTo(Product::class);
+    }
+}
+
+============================================================
+FILE: app\Models\InventoryLayer.php
+============================================================
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class InventoryLayer extends Model
+{
+    protected $fillable = [
+        'product_id',
+        'purchase_item_id',
+        'stock_movement_id',
+        'quantity',
+        'remaining_quantity',
+        'unit_cost',
+        'total_cost',
+        'received_at',
+        'status',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'quantity' => 'decimal:3',
+            'remaining_quantity' => 'decimal:3',
+            'unit_cost' => 'decimal:2',
+            'total_cost' => 'decimal:2',
+            'received_at' => 'datetime',
+        ];
+    }
+
+    /**
+     * Produk yang dimiliki layer ini.
+     */
+    public function product(): BelongsTo
+    {
+        return $this->belongsTo(Product::class);
+    }
+
+    /**
+     * Purchase item yang menghasilkan layer.
+     */
+    public function purchaseItem(): BelongsTo
+    {
+        return $this->belongsTo(PurchaseItem::class);
+    }
+
+    /**
+     * Stock movement yang membentuk layer.
+     */
+    public function stockMovement(): BelongsTo
+    {
+        return $this->belongsTo(StockMovement::class);
+    }
+}
+
+============================================================
+FILE: app\Models\InventoryLayerConsumption.php
+============================================================
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+
+class InventoryLayerConsumption extends Model
+{
+    //
+}
+
+============================================================
+FILE: app\Models\StockMovement.php
+============================================================
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class StockMovement extends Model
+{
+    protected $fillable = [
+        'product_id',
+        'type',
+        'quantity',
+        'unit_cost',
+        'reference_type',
+        'reference_id',
+        'moved_at',
+        'notes',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'quantity' => 'decimal:3',
+            'unit_cost' => 'decimal:2',
+            'moved_at' => 'datetime',
+        ];
+    }
+
+    /**
+     * Produk yang mengalami pergerakan stok.
+     */
+    public function product(): BelongsTo
+    {
+        return $this->belongsTo(Product::class);
+    }
+
+    /**
+     * Inventory layer yang terbentuk dari movement ini.
+     */
+    public function inventoryLayers(): HasMany
+    {
+        return $this->hasMany(InventoryLayer::class);
+    }
+}
+
+============================================================
+FILE: app\Models\StockAllocation.php
+============================================================
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class StockAllocation extends Model
+{
+    protected $fillable = [
+        'product_id',
+        'work_order_id',
+        'quantity',
+        'status',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'quantity' => 'decimal:3',
+        ];
+    }
+
+    /**
+     * Work Order yang menggunakan alokasi stok.
+     */
+    public function workOrder(): BelongsTo
+    {
+        return $this->belongsTo(WorkOrder::class);
+    }
+
+    /**
+     * Produk yang dialokasikan.
+     */
+    public function product(): BelongsTo
+    {
+        return $this->belongsTo(Product::class);
+    }
+}
+
+============================================================
+FILE: app\Models\StockOpname.php
+============================================================
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
+
+class StockOpname extends Model
+{
+    protected $fillable = [
+        'code',
+        'opname_date',
+        'status',
+        'notes',
+        'created_by',
+        'approved_by',
+        'approved_at',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'opname_date' => 'date',
+            'approved_at' => 'datetime',
+        ];
+    }
+
+    /**
+     * Detail item stock opname.
+     */
+    public function items(): HasMany
+    {
+        return $this->hasMany(StockOpnameItem::class);
+    }
+
+    /**
+     * User yang membuat stock opname.
+     */
+    public function creator(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(User::class, 'created_by');
+    }
+
+    /**
+     * User yang menyetujui stock opname.
+     */
+    public function approver(): \Illuminate\Database\Eloquent\Relations\BelongsTo
+    {
+        return $this->belongsTo(User::class, 'approved_by');
+    }
+}
+
+============================================================
+FILE: app\Models\StockOpnameItem.php
+============================================================
+<?php
+
+namespace App\Models;
+
+use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
+
+class StockOpnameItem extends Model
+{
+    protected $fillable = [
+        'stock_opname_id',
+        'product_id',
+        'system_quantity',
+        'physical_quantity',
+        'difference_quantity',
+        'unit_cost',
+        'difference_value',
+        'notes',
+    ];
+
+    protected function casts(): array
+    {
+        return [
+            'system_quantity' => 'decimal:3',
+            'physical_quantity' => 'decimal:3',
+            'difference_quantity' => 'decimal:3',
+            'unit_cost' => 'decimal:2',
+            'difference_value' => 'decimal:2',
+        ];
+    }
+
+    /**
+     * Stock opname induk.
+     */
+    public function stockOpname(): BelongsTo
+    {
+        return $this->belongsTo(StockOpname::class);
+    }
+
+    /**
+     * Produk yang dihitung.
+     */
+    public function product(): BelongsTo
+    {
+        return $this->belongsTo(Product::class);
+    }
+}
+
+============================================================
+FILE: app\Http\Controllers\WorkOrderController.php
+============================================================
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Customer;
+use App\Models\Product;
+use App\Models\ProductCategory;
+use App\Models\Service;
+use App\Models\WorkOrder;
+use App\Models\WorkOrderItem;
+use App\Services\InventoryFifoService;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
+
+class WorkOrderController extends Controller
+{
+    public function index()
+    {
+        $workOrders = WorkOrder::with('customer')
+            ->latest()
+            ->paginate(15);
+
+        return view('work_orders.index', compact('workOrders'));
+    }
+
+    public function create()
+    {
+        $customers = Customer::where('is_active', true)
+            ->orderBy('name')
+            ->get();
+
+        $products = Product::where('is_active', true)
+            ->orderBy('name')
+            ->get();
+
+        $services = Service::where('is_active', true)
+            ->orderBy('name')
+            ->get();
+
+        $nextCode = $this->generateCode('WO-', 'work_orders', 'code');
+
+        return view('work_orders.create', compact(
+            'customers',
+            'products',
+            'services',
+            'nextCode'
+        ));
+    }
+
+    public function store(Request $request)
+    {
+        $validated = $this->validateWorkOrder($request);
+
+        return DB::transaction(function () use ($request, $validated) {
+
+            $customer = $this->resolveCustomer($validated);
+
+            $workOrder = WorkOrder::create([
+                'code' => $validated['code'],
+                'status' => $validated['status'] ?? 'OPEN',
+                'customer_id' => $customer->id,
+                'type' => $validated['type'] ?? 'REGULAR',
+                'opened_at' => $validated['opened_at'] ?? now(),
+                'complaint' => $validated['complaint'] ?? null,
+                'diagnosis' => $validated['diagnosis'] ?? null,
+                'notes' => $validated['notes'] ?? null,
+                'discount' => $validated['discount'] ?? 0,
+                'subtotal' => 0,
+                'grand_total' => 0,
+            ]);
+
+            $subtotal = $this->saveItems(
+                $workOrder,
+                $request->input('items', [])
+            );
+
+            $discount = (float) ($validated['discount'] ?? 0);
+
+            $grandTotal = max(
+                0,
+                $subtotal - $discount
+            );
+
+            $workOrder->update([
+                'subtotal' => $subtotal,
+                'grand_total' => $grandTotal,
+            ]);
+
+            /*
+             * ====================================================
+             * PAYMENT SAAT CREATE WO
+             * ====================================================
+             */
+
+            $paymentAmount = (float) (
+                $validated['payment_amount'] ?? 0
+            );
+
+            if ($paymentAmount > 0) {
+
+                if ($paymentAmount > $grandTotal) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'payment_amount' =>
+                            'Jumlah pembayaran tidak boleh melebihi Grand Total Work Order.',
+                    ]);
+                }
+
+                $paymentMethod =
+                    $validated['payment_method'] ?? null;
+
+                if (!$paymentMethod) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'payment_method' =>
+                            'Metode pembayaran wajib dipilih jika ada pembayaran.',
+                    ]);
+                }
+
+                $workOrder->payments()->create([
+                    'code' =>
+                        'PAY-' .
+                        now()->format('YmdHisv'),
+
+                    'paid_at' =>
+                        $validated['payment_paid_at']
+                        ?? now(),
+
+                    'amount' =>
+                        $paymentAmount,
+
+                    'method' =>
+                        $paymentMethod,
+
+                    'reference_number' =>
+                        $validated['payment_reference_number']
+                        ?? null,
+
+                    'notes' =>
+                        $validated['payment_notes']
+                        ?? null,
+                ]);
+            }
+
+            return redirect()
+                ->route(
+                    'work-orders.show',
+                    $workOrder
+                )
+                ->with(
+                    'success',
+                    $paymentAmount > 0
+                        ? 'Work Order dan pembayaran berhasil dibuat.'
+                        : 'Work Order berhasil dibuat.'
+                );
+        });
+    }
+
+    public function show(WorkOrder $workOrder)
+    {
+        $workOrder->load([
+            'customer',
+            'items.product.category',
+            'items.service',
+            'additionalCharges',
+            'payments',
+        ]);
+
+        return view('work_orders.show', compact('workOrder'));
+    }
+
+    public function edit(WorkOrder $workOrder)
+    {
+        if ($workOrder->status === 'COMPLETED') {
+            return redirect()
+                ->route('work-orders.show', $workOrder)
+                ->with('error', 'Work Order yang sudah FINAL tidak dapat diedit.');
+        }
+
+        $workOrder->load([
+            'customer',
+            'items.product.category',
+            'items.service',
+        ]);
+
+        $customers = Customer::where('is_active', true)
+            ->orderBy('name')
+            ->get();
+
+        $products = Product::where('is_active', true)
+            ->orderBy('name')
+            ->get();
+
+        $services = Service::where('is_active', true)
+            ->orderBy('name')
+            ->get();
+
+        return view('work_orders.edit', compact(
+            'workOrder',
+            'customers',
+            'products',
+            'services'
+        ));
+    }
+
+    public function update(Request $request, WorkOrder $workOrder)
+    {
+        if ($workOrder->status === 'COMPLETED') {
+            return redirect()
+                ->route('work-orders.show', $workOrder)
+                ->with(
+                    'error',
+                    'Work Order yang sudah FINAL tidak dapat diedit.'
+                );
+        }
+
+        $validated = $this->validateWorkOrder(
+            $request,
+            $workOrder
+        );
+
+        return DB::transaction(function () use (
+            $request,
+            $validated,
+            $workOrder
+        ) {
+
+            $customer = $this->resolveCustomer(
+                $validated
+            );
+
+            /*
+             * ====================================================
+             * SIMPAN PAYMENT LAMA
+             * ====================================================
+             */
+
+            $totalPaidBefore = (float) $workOrder
+                ->payments()
+                ->sum('amount');
+
+            /*
+             * ====================================================
+             * UPDATE WORK ORDER
+             * ====================================================
+             */
+
+            $workOrder->update([
+                'code' =>
+                    $validated['code'],
+
+                'status' =>
+                    $validated['status']
+                    ?? $workOrder->status,
+
+                'customer_id' =>
+                    $customer->id,
+
+                'type' =>
+                    $validated['type']
+                    ?? 'REGULAR',
+
+                'opened_at' =>
+                    $validated['opened_at']
+                    ?? $workOrder->opened_at,
+
+                'complaint' =>
+                    $validated['complaint']
+                    ?? null,
+
+                'diagnosis' =>
+                    $validated['diagnosis']
+                    ?? null,
+
+                'notes' =>
+                    $validated['notes']
+                    ?? null,
+
+                'discount' =>
+                    $validated['discount']
+                    ?? 0,
+            ]);
+
+            /*
+             * ====================================================
+             * REBUILD ITEM WO
+             * ====================================================
+             */
+
+            $workOrder->items()->delete();
+
+            $subtotal = $this->saveItems(
+                $workOrder,
+                $request->input('items', [])
+            );
+
+            $discount = (float) (
+                $validated['discount'] ?? 0
+            );
+
+            $grandTotal = max(
+                0,
+                $subtotal - $discount
+            );
+
+            $workOrder->update([
+                'subtotal' =>
+                    $subtotal,
+
+                'grand_total' =>
+                    $grandTotal,
+            ]);
+
+            /*
+             * ====================================================
+             * HITUNG SISA TAGIHAN
+             * ====================================================
+             */
+
+            $remainingBeforeNewPayment = max(
+                0,
+                $grandTotal - $totalPaidBefore
+            );
+
+            /*
+             * ====================================================
+             * PAYMENT BARU SAAT EDIT
+             * ====================================================
+             */
+
+            $paymentAmount = (float) (
+                $validated['payment_amount'] ?? 0
+            );
+
+            if ($paymentAmount > 0) {
+
+                if (
+                    $paymentAmount >
+                    $remainingBeforeNewPayment
+                ) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'payment_amount' =>
+                            'Jumlah pembayaran melebihi sisa tagihan Work Order. Sisa tagihan saat ini: Rp ' .
+                            number_format(
+                                $remainingBeforeNewPayment,
+                                0,
+                                ',',
+                                '.'
+                            ),
+                    ]);
+                }
+
+                $paymentMethod =
+                    $validated['payment_method']
+                    ?? null;
+
+                if (!$paymentMethod) {
+                    throw \Illuminate\Validation\ValidationException::withMessages([
+                        'payment_method' =>
+                            'Metode pembayaran wajib dipilih jika ada pembayaran.',
+                    ]);
+                }
+
+                $workOrder->payments()->create([
+                    'code' =>
+                        'PAY-' .
+                        now()->format('YmdHisv'),
+
+                    'paid_at' =>
+                        $validated['payment_paid_at']
+                        ?? now(),
+
+                    'amount' =>
+                        $paymentAmount,
+
+                    'method' =>
+                        $paymentMethod,
+
+                    'reference_number' =>
+                        $validated[
+                            'payment_reference_number'
+                        ] ?? null,
+
+                    'notes' =>
+                        $validated[
+                            'payment_notes'
+                        ] ?? null,
+                ]);
+            }
+
+            /*
+             * ====================================================
+             * HASIL AKHIR PAYMENT
+             * ====================================================
+             */
+
+            $totalPaidAfter = (float) $workOrder
+                ->payments()
+                ->sum('amount');
+
+            $remainingAfterPayment = max(
+                0,
+                $grandTotal - $totalPaidAfter
+            );
+
+            if ($remainingAfterPayment <= 0) {
+
+                $message =
+                    'Work Order berhasil diperbarui dan pembayaran sudah LUNAS.';
+
+            } elseif ($paymentAmount > 0) {
+
+                $message =
+                    'Work Order dan pembayaran berhasil diperbarui. Sisa tagihan: Rp ' .
+                    number_format(
+                        $remainingAfterPayment,
+                        0,
+                        ',',
+                        '.'
+                    );
+
+            } else {
+
+                $message =
+                    'Work Order berhasil diperbarui. Sisa tagihan: Rp ' .
+                    number_format(
+                        $remainingAfterPayment,
+                        0,
+                        ',',
+                        '.'
+                    );
+            }
+
+            return redirect()
+                ->route(
+                    'work-orders.show',
+                    $workOrder
+                )
+                ->with(
+                    'success',
+                    $message
+                );
+        });
+    }
+
+    public function destroy(WorkOrder $workOrder)
+    {
+        if ($workOrder->status === 'COMPLETED') {
+            return redirect()
+                ->route('work-orders.index')
+                ->with('error', 'Work Order yang sudah FINAL tidak dapat dihapus.');
+        }
+
+        $workOrder->delete();
+
+        return redirect()
+            ->route('work-orders.index')
+            ->with('success', 'Work Order berhasil dihapus.');
+    }
+
+    public function final(WorkOrder $workOrder)
+    {
+        if ($workOrder->status === 'COMPLETED') {
+            return redirect()
+                ->route('work-orders.show', $workOrder)
+                ->with('error', 'Work Order sudah FINAL.');
+        }
+
+        $workOrder->update([
+            'status' => 'COMPLETED',
+            'completed_at' => now(),
+        ]);
+
+        return redirect()
+            ->route('work-orders.show', $workOrder)
+            ->with('success', 'Work Order berhasil di-FINAL.');
+    }
+
+    private function validateWorkOrder(
+        Request $request,
+        ?WorkOrder $workOrder = null
+    ): array {
+
+        return $request->validate([
+            'code' => [
+                'required',
+                'string',
+                'max:30',
+                Rule::unique('work_orders', 'code')
+                    ->ignore($workOrder?->id),
+            ],
+
+            'status' => [
+                'nullable',
+                Rule::in([
+                    'OPEN',
+                    'IN_PROGRESS',
+                    'WAITING_PARTS',
+                    'COMPLETED',
+                    'CANCELLED',
+                ]),
+            ],
+
+            'type' => [
+                'required',
+                Rule::in(['REGULAR', 'WARRANTY']),
+            ],
+
+            'opened_at' => 'nullable|date',
+            'complaint' => 'nullable|string',
+            'diagnosis' => 'nullable|string',
+            'notes' => 'nullable|string',
+            'discount' => 'nullable|numeric|min:0',
+
+            /*
+             * CUSTOMER
+             */
+            'customer_mode' => [
+                'required',
+                Rule::in(['EXISTING', 'NEW']),
+            ],
+
+            'customer_id' => 'nullable|integer|exists:customers,id',
+            'customer_code' => 'nullable|string|max:30',
+            'customer_name' => 'nullable|string|max:255',
+            'customer_phone' => 'nullable|string|max:30',
+            'customer_plate_number' => 'nullable|string|max:30',
+            'customer_brand' => 'nullable|string|max:100',
+            'customer_type' => 'nullable|string|max:100',
+            'customer_notes' => 'nullable|string',
+
+            /*
+             * PAYMENT
+             */
+            'payment_amount' => 'nullable|numeric|gt:0',
+
+            'payment_paid_at' => 'nullable|date',
+
+            'payment_method' => [
+                'nullable',
+                Rule::in([
+                    'CASH',
+                    'BANK_TRANSFER',
+                    'DEBIT_CARD',
+                    'CREDIT_CARD',
+                    'QRIS',
+                    'OTHER',
+                ]),
+            ],
+
+            'payment_reference_number' =>
+                'nullable|string|max:100',
+
+            'payment_notes' =>
+                'nullable|string',
+
+            /*
+             * ITEMS
+             */
+            'items' => 'nullable|array',
+
+            'items.*.item_type' => [
+                'nullable',
+                Rule::in(['SERVICE', 'PRODUCT']),
+            ],
+
+            'items.*.mode' => [
+                'nullable',
+                Rule::in(['EXISTING', 'NEW']),
+            ],
+
+            'items.*.service_id' => 'nullable|integer|exists:services,id',
+            'items.*.product_id' => 'nullable|integer|exists:products,id',
+
+            /*
+             * SERVICE MASTER
+             */
+            'items.*.service_code' => 'nullable|string|max:50',
+            'items.*.service_name' => 'nullable|string|max:255',
+            'items.*.service_default_price' => 'nullable|numeric|min:0',
+            'items.*.service_description' => 'nullable|string',
+            'items.*.service_estimated_duration' => 'nullable|integer|min:0',
+
+            /*
+             * PRODUCT MASTER
+             */
+            'items.*.product_code' => 'nullable|string|max:50',
+            'items.*.product_category_name' => 'nullable|string|max:255',
+            'items.*.product_barcode' => 'nullable|string|max:100',
+            'items.*.product_name' => 'nullable|string|max:255',
+            'items.*.product_brand' => 'nullable|string|max:100',
+            'items.*.product_unit' => 'nullable|string|max:20',
+            'items.*.product_stock_type' => 'nullable|in:STOCK,NON_STOCK',
+            'items.*.product_purchase_price' => 'nullable|numeric|min:0',
+            'items.*.product_selling_price' => 'nullable|numeric|min:0',
+            'items.*.product_minimum_stock' => 'nullable|numeric|min:0',
+
+            /*
+             * ITEM USAGE
+             */
+            'items.*.quantity' => 'nullable|numeric|min:0.001',
+            'items.*.discount_amount' => 'nullable|numeric|min:0',
+            'items.*.notes' => 'nullable|string',
+        ]);
+    }
+
+    private function resolveCustomer(array $validated): Customer
+    {
+        if (($validated['customer_mode'] ?? 'EXISTING') === 'EXISTING') {
+
+            $customer = Customer::find(
+                $validated['customer_id'] ?? null
+            );
+
+            if (!$customer) {
+                abort(
+                    422,
+                    'Customer tidak ditemukan.'
+                );
+            }
+
+            return $customer;
+        }
+
+        $name = trim(
+            $validated['customer_name'] ?? ''
+        );
+
+        if ($name === '') {
+            abort(
+                422,
+                'Nama customer wajib diisi.'
+            );
+        }
+
+        $code = trim(
+            $validated['customer_code'] ?? ''
+        );
+
+        if ($code === '') {
+            $code = $this->generateCode(
+                'CUS-',
+                'customers',
+                'code'
+            );
+        }
+
+        return Customer::create([
+            'code' => $code,
+            'name' => $name,
+            'phone' => trim(
+                $validated['customer_phone'] ?? ''
+            ) ?: null,
+            'plate_number' => strtoupper(
+                trim($validated['customer_plate_number'] ?? '')
+            ) ?: null,
+            'brand' => trim(
+                $validated['customer_brand'] ?? ''
+            ) ?: null,
+            'type' => trim(
+                $validated['customer_type'] ?? ''
+            ) ?: null,
+            'notes' => trim(
+                $validated['customer_notes'] ?? ''
+            ) ?: null,
+            'is_active' => true,
+        ]);
+    }
+
+    private function saveItems(
+        WorkOrder $workOrder,
+        array $items
+    ): float {
+
+        $subtotal = 0;
+
+        foreach ($items as $item) {
+
+            $quantity = (float) (
+                $item['quantity'] ?? 0
+            );
+
+            if ($quantity <= 0) {
+                continue;
+            }
+
+            $itemType = $item['item_type'] ?? 'SERVICE';
+            $mode = $item['mode'] ?? 'EXISTING';
+
+            $serviceId = null;
+            $productId = null;
+            $itemCode = null;
+            $itemName = null;
+            $unit = 'JASA';
+            $unitPrice = 0;
+            $unitCost = 0;
+
+            /*
+             * ====================================================
+             * JASA
+             * ====================================================
+             */
+            if ($itemType === 'SERVICE') {
+
+                if ($mode === 'NEW') {
+
+                    $serviceCode = trim(
+                        $item['service_code'] ?? ''
+                    );
+
+                    if ($serviceCode === '') {
+                        $serviceCode = $this->generateCode(
+                            'JS-',
+                            'services',
+                            'code'
+                        );
+                    }
+
+                    $serviceName = trim(
+                        $item['service_name'] ?? ''
+                    );
+
+                    if ($serviceName === '') {
+                        continue;
+                    }
+
+                    $service = Service::firstOrCreate(
+                        [
+                            'code' => $serviceCode,
+                        ],
+                        [
+                            'name' => $serviceName,
+                            'description' =>
+                                trim($item['service_description'] ?? '') ?: null,
+                            'default_price' =>
+                                (float) ($item['service_default_price'] ?? 0),
+                            'estimated_duration' =>
+                                (int) ($item['service_estimated_duration'] ?? 0),
+                            'is_active' => true,
+                        ]
+                    );
+
+                    /*
+                     * Kalau kode sudah ada, tetap sinkronkan
+                     * data master dari input baru.
+                     */
+                    $service->update([
+                        'name' => $serviceName,
+                        'description' =>
+                            trim($item['service_description'] ?? '') ?: null,
+                        'default_price' =>
+                            (float) ($item['service_default_price'] ?? 0),
+                        'estimated_duration' =>
+                            (int) ($item['service_estimated_duration'] ?? 0),
+                        'is_active' => true,
+                    ]);
+
+                } else {
+
+                    $service = Service::find(
+                        $item['service_id'] ?? null
+                    );
+
+                    if (!$service) {
+                        continue;
+                    }
+                }
+
+                $serviceId = $service->id;
+                $itemCode = $service->code;
+                $itemName = $service->name;
+                $unit = 'JASA';
+                $unitPrice = (float) $service->default_price;
+
+            /*
+             * ====================================================
+             * SPAREPART
+             * ====================================================
+             */
+            } else {
+
+                if ($mode === 'NEW') {
+
+                    $productCode = trim(
+                        $item['product_code'] ?? ''
+                    );
+
+                    if ($productCode === '') {
+                        $productCode = $this->generateCode(
+                            'SP-',
+                            'products',
+                            'code'
+                        );
+                    }
+
+                    $productName = trim(
+                        $item['product_name'] ?? ''
+                    );
+
+                    if ($productName === '') {
+                        continue;
+                    }
+
+                    $categoryName = trim(
+                        $item['product_category_name'] ?? ''
+                    );
+
+                    if ($categoryName !== '') {
+
+                        $category = ProductCategory::firstOrCreate(
+                            [
+                                'name' => $categoryName,
+                            ],
+                            [
+                                'code' => $this->generateCategoryCode(
+                                    $categoryName
+                                ),
+                                'is_active' => true,
+                            ]
+                        );
+
+                    } else {
+
+                        $category = ProductCategory::firstOrCreate(
+                            [
+                                'code' => 'SPAREPART-MANUAL',
+                            ],
+                            [
+                                'name' => 'Sparepart Manual',
+                                'description' =>
+                                    'Kategori default sparepart dari Work Order.',
+                                'is_active' => true,
+                            ]
+                        );
+                    }
+
+                    $product = Product::firstOrCreate(
+                        [
+                            'code' => $productCode,
+                        ],
+                        [
+                            'category_id' => $category->id,
+                            'barcode' =>
+                                trim($item['product_barcode'] ?? '') ?: null,
+                            'name' => $productName,
+                            'brand' =>
+                                trim($item['product_brand'] ?? '') ?: null,
+                            'unit' =>
+                                trim($item['product_unit'] ?? 'PCS') ?: 'PCS',
+                            'stock_type' =>
+                                $item['product_stock_type'] ?? 'STOCK',
+                            'default_purchase_price' =>
+                                (float) ($item['product_purchase_price'] ?? 0),
+                            'default_selling_price' =>
+                                (float) ($item['product_selling_price'] ?? 0),
+                            'minimum_stock' =>
+                                (float) ($item['product_minimum_stock'] ?? 0),
+                            'is_active' => true,
+                        ]
+                    );
+
+                    $product->update([
+                        'category_id' => $category->id,
+                        'barcode' =>
+                            trim($item['product_barcode'] ?? '') ?: null,
+                        'name' => $productName,
+                        'brand' =>
+                            trim($item['product_brand'] ?? '') ?: null,
+                        'unit' =>
+                            trim($item['product_unit'] ?? 'PCS') ?: 'PCS',
+                        'stock_type' =>
+                            $item['product_stock_type'] ?? 'STOCK',
+                        'default_purchase_price' =>
+                            (float) ($item['product_purchase_price'] ?? 0),
+                        'default_selling_price' =>
+                            (float) ($item['product_selling_price'] ?? 0),
+                        'minimum_stock' =>
+                            (float) ($item['product_minimum_stock'] ?? 0),
+                        'is_active' => true,
+                    ]);
+
+                } else {
+
+                    $product = Product::find(
+                        $item['product_id'] ?? null
+                    );
+
+                    if (!$product) {
+                        continue;
+                    }
+                }
+
+                $productId = $product->id;
+                $itemCode = $product->code;
+                $itemName = $product->name;
+                $unit = $product->unit ?: 'PCS';
+
+                $unitPrice = (float) $product->default_selling_price;
+                $unitCost = (float) $product->default_purchase_price;
+            }
+
+            $discountAmount = (float) (
+                $item['discount_amount'] ?? 0
+            );
+
+            $lineSubtotal = max(
+                0,
+                ($quantity * $unitPrice) - $discountAmount
+            );
+
+            $totalCost = $quantity * $unitCost;
+
+            WorkOrderItem::create([
+                'work_order_id' => $workOrder->id,
+                'item_type' => $itemType,
+                'service_id' => $serviceId,
+                'product_id' => $productId,
+                'item_code' => $itemCode,
+                'item_name' => $itemName,
+                'unit' => $unit,
+                'quantity' => $quantity,
+                'unit_price' => $unitPrice,
+                'discount_amount' => $discountAmount,
+                'subtotal' => $lineSubtotal,
+                'unit_cost' => $unitCost,
+                'total_cost' => $totalCost,
+                'status' => 'PENDING',
+                'notes' => $item['notes'] ?? null,
+            ]);
+
+            /*
+             * Untuk sparepart:
+             *
+             * Master Product TIDAK dihapus walaupun stock 0.
+             *
+             * Pengurangan stock mengikuti sistem inventory
+             * yang sudah ada. Script ini tidak membuat tabel stock
+             * baru agar tidak merusak struktur ERD.
+             */
+            if (
+                $itemType === 'PRODUCT' &&
+                $productId
+            ) {
+                $this->consumeInventory(
+                    $product,
+                    $quantity,
+                    $workOrder
+                );
+            }
+
+            $subtotal += $lineSubtotal;
+        }
+
+        return $subtotal;
+    }
+
+    private function consumeInventory(
+        Product $product,
+        float $quantity,
+        WorkOrder $workOrder
+    ): void {
+
+        /*
+         * Semua pemakaian stok Work Order sekarang
+         * wajib melalui FIFO service.
+         */
+        app(InventoryFifoService::class)
+            ->consumeForWorkOrder(
+                $workOrder,
+                $product->id,
+                $quantity
+            );
+    }
+
+    private function generateCode(
+        string $prefix,
+        string $table,
+        string $column
+    ): string {
+
+        do {
+            $code = $prefix . strtoupper(
+                Str::random(8)
+            );
+        } while (
+            DB::table($table)
+                ->where($column, $code)
+                ->exists()
+        );
+
+        return $code;
+    }
+
+    private function generateCategoryCode(
+        string $name
+    ): string {
+
+        $base = strtoupper(
+            Str::slug($name, '-')
+        );
+
+        $base = substr($base, 0, 15);
+
+        if ($base === '') {
+            $base = 'CATEGORY';
+        }
+
+        $code = $base;
+        $counter = 1;
+
+        while (
+            ProductCategory::where(
+                'code',
+                $code
+            )->exists()
+        ) {
+            $code = $base . '-' . $counter;
+            $counter++;
+        }
+
+        return $code;
+    }
+}
+
+
+============================================================
+FILE: app\Http\Controllers\PurchaseController.php
+============================================================
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\Purchase;
+use App\Models\PurchaseItem;
+use App\Models\Supplier;
+use App\Models\WorkOrder;
+use App\Services\InventoryFifoService;
+use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
+use Illuminate\Support\Facades\DB;
+
+class PurchaseController extends Controller
+{
+    /**
+     * Menampilkan daftar purchase.
+     */
+    public function index()
+    {
+        $purchases = Purchase::with([
+            'supplier',
+            'workOrder',
+        ])
+            ->latest()
+            ->paginate(10);
+
+        return view('purchases.index', compact('purchases'));
+    }
+
+    /**
+     * Form membuat purchase.
+     */
+    public function create()
+    {
+        $suppliers = Supplier::where('is_active', true)
+            ->orderBy('name')
+            ->get();
+
+        $workOrders = WorkOrder::whereNotIn('status', [
+            'COMPLETED',
+            'CANCELLED',
+        ])
+            ->latest()
+            ->get();
+
+        return view(
+            'purchases.create',
+            compact('suppliers', 'workOrders')
+        );
+    }
+
+    /**
+     * Menyimpan purchase baru.
+     */
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'code' => 'required|string|max:30|unique:purchases,code',
+
+            'supplier_id' => [
+                'required',
+                'integer',
+                'exists:suppliers,id',
+            ],
+
+            'work_order_id' => [
+                'nullable',
+                'integer',
+                'exists:work_orders,id',
+            ],
+
+            'status' => [
+                'nullable',
+                Rule::in([
+                    'DRAFT',
+                    'ORDERED',
+                    'PARTIAL',
+                    'RECEIVED',
+                    'CANCELLED',
+                ]),
+            ],
+
+            'purchase_type' => [
+                'required',
+                Rule::in([
+                    'GENERAL',
+                    'WO',
+                ]),
+            ],
+
+            'purchase_date' => 'required|date',
+
+            'received_at' => 'nullable|date',
+
+            'subtotal' => 'nullable|numeric|min:0',
+            'discount' => 'nullable|numeric|min:0',
+            'grand_total' => 'nullable|numeric|min:0',
+
+            'notes' => 'nullable|string',
+        ]);
+
+        /*
+         * Purchase dengan tipe WO harus mempunyai WO.
+         */
+        if (
+            $validated['purchase_type'] === 'WO'
+            && empty($validated['work_order_id'])
+        ) {
+            return back()
+                ->withErrors([
+                    'work_order_id' =>
+                        'Purchase tipe WO wajib memiliki Work Order.',
+                ])
+                ->withInput();
+        }
+
+        /*
+         * Purchase GENERAL tidak harus memiliki WO.
+         */
+        if (
+            $validated['purchase_type'] === 'GENERAL'
+        ) {
+            $validated['work_order_id'] = null;
+        }
+
+        $validated['status'] =
+            $validated['status'] ?? 'DRAFT';
+
+        $validated['subtotal'] =
+            $validated['subtotal'] ?? 0;
+
+        $validated['discount'] =
+            $validated['discount'] ?? 0;
+
+        $validated['grand_total'] =
+            $validated['grand_total'] ?? 0;
+
+        Purchase::create($validated);
+
+        return redirect()
+            ->route('purchases.index')
+            ->with(
+                'success',
+                'Purchase berhasil dibuat.'
+            );
+    }
+
+    /**
+     * Menampilkan detail purchase.
+     */
+    public function show(Purchase $purchase)
+    {
+        $purchase->load([
+            'supplier',
+            'workOrder',
+            'items.product',
+        ]);
+
+        return view(
+            'purchases.show',
+            compact('purchase')
+        );
+    }
+
+    /**
+     * Form edit purchase.
+     */
+    public function edit(Purchase $purchase)
+    {
+        /*
+         * Purchase yang sudah RECEIVED tidak boleh diedit
+         * melalui CRUD biasa karena sudah berhubungan
+         * dengan inventory.
+         */
+        if ($purchase->status === 'RECEIVED') {
+            return redirect()
+                ->route('purchases.show', $purchase)
+                ->with(
+                    'error',
+                    'Purchase yang sudah diterima tidak dapat diedit.'
+                );
+        }
+
+        $suppliers = Supplier::where('is_active', true)
+            ->orderBy('name')
+            ->get();
+
+        $workOrders = WorkOrder::whereNotIn('status', [
+            'COMPLETED',
+            'CANCELLED',
+        ])
+            ->latest()
+            ->get();
+
+        return view(
+            'purchases.edit',
+            compact(
+                'purchase',
+                'suppliers',
+                'workOrders'
+            )
+        );
+    }
+
+    /**
+     * Memperbarui purchase.
+     */
+    public function update(
+        Request $request,
+        Purchase $purchase
+    ) {
+        if ($purchase->status === 'RECEIVED') {
+            return redirect()
+                ->route('purchases.show', $purchase)
+                ->with(
+                    'error',
+                    'Purchase yang sudah diterima tidak dapat diedit.'
+                );
+        }
+
+        $validated = $request->validate([
+            'code' => [
+                'required',
+                'string',
+                'max:30',
+                Rule::unique('purchases', 'code')
+                    ->ignore($purchase->id),
+            ],
+
+            'supplier_id' => [
+                'required',
+                'integer',
+                'exists:suppliers,id',
+            ],
+
+            'work_order_id' => [
+                'nullable',
+                'integer',
+                'exists:work_orders,id',
+            ],
+
+            'status' => [
+                'required',
+                Rule::in([
+                    'DRAFT',
+                    'ORDERED',
+                    'PARTIAL',
+                    'RECEIVED',
+                    'CANCELLED',
+                ]),
+            ],
+
+            'purchase_type' => [
+                'required',
+                Rule::in([
+                    'GENERAL',
+                    'WO',
+                ]),
+            ],
+
+            'purchase_date' => 'required|date',
+
+            'received_at' => 'nullable|date',
+
+            'subtotal' => 'nullable|numeric|min:0',
+            'discount' => 'nullable|numeric|min:0',
+            'grand_total' => 'nullable|numeric|min:0',
+
+            'notes' => 'nullable|string',
+        ]);
+
+        if (
+            $validated['purchase_type'] === 'WO'
+            && empty($validated['work_order_id'])
+        ) {
+            return back()
+                ->withErrors([
+                    'work_order_id' =>
+                        'Purchase tipe WO wajib memiliki Work Order.',
+                ])
+                ->withInput();
+        }
+
+        if (
+            $validated['purchase_type'] === 'GENERAL'
+        ) {
+            $validated['work_order_id'] = null;
+        }
+
+        /*
+         * =====================================================
+         * PURCHASE RECEIVED
+         * =====================================================
+         *
+         * Contoh:
+         *
+         * Purchase Item = 25
+         * received      = 0
+         *
+         * status RECEIVED
+         *      ?
+         * Stock Movement PURCHASE = 25
+         *      ?
+         * Inventory Layer = 25
+         *      ?
+         * Inventory Balance = +25
+         *
+         * Jika sebelumnya sudah menerima sebagian,
+         * hanya sisa yang masuk inventory.
+         */
+        if ($validated['status'] === 'RECEIVED') {
+
+            DB::transaction(function () use (
+                $purchase,
+                $validated
+            ) {
+                $purchase->load('items');
+
+                $fifo = app(InventoryFifoService::class);
+
+                foreach ($purchase->items as $item) {
+
+                    $ordered =
+                        (float) $item->quantity;
+
+                    $received =
+                        (float) $item->received_quantity;
+
+                    $remaining =
+                        $ordered - $received;
+
+                    if ($remaining > 0) {
+                        $fifo->receivePurchaseItem(
+                            $item,
+                            $remaining,
+                            $validated['received_at'] ?? now()
+                        );
+                    }
+                }
+
+                $purchase->update([
+                    'status' => 'RECEIVED',
+                    'received_at' =>
+                        $validated['received_at'] ?? now(),
+                    'code' =>
+                        $validated['code'],
+                    'supplier_id' =>
+                        $validated['supplier_id'],
+                    'work_order_id' =>
+                        $validated['work_order_id'],
+                    'purchase_type' =>
+                        $validated['purchase_type'],
+                    'purchase_date' =>
+                        $validated['purchase_date'],
+                    'subtotal' =>
+                        $validated['subtotal'] ?? 0,
+                    'discount' =>
+                        $validated['discount'] ?? 0,
+                    'grand_total' =>
+                        $validated['grand_total'] ?? 0,
+                    'notes' =>
+                        $validated['notes'] ?? null,
+                ]);
+            });
+
+        } else {
+
+            $purchase->update($validated);
+        }
+
+        return redirect()
+            ->route('purchases.show', $purchase)
+            ->with(
+                'success',
+                'Purchase berhasil diperbarui.'
+            );
+    }
+
+    /**
+     * Menghapus purchase.
+     */
+    public function destroy(Purchase $purchase)
+    {
+        if ($purchase->status === 'RECEIVED') {
+            return redirect()
+                ->route('purchases.show', $purchase)
+                ->with(
+                    'error',
+                    'Purchase yang sudah diterima tidak dapat dihapus.'
+                );
+        }
+
+        $purchase->delete();
+
+        return redirect()
+            ->route('purchases.index')
+            ->with(
+                'success',
+                'Purchase berhasil dihapus.'
+            );
+    }
+}
+
+
+============================================================
+FILE: app\Http\Controllers\InventoryBalanceController.php
+============================================================
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\InventoryBalance;
+use App\Models\Product;
+use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
+
+class InventoryBalanceController extends Controller
+{
+    /**
+     * Menampilkan saldo inventory.
+     */
+    public function index(Request $request)
+    {
+        $query = InventoryBalance::with('product');
+
+        if ($request->filled('product_id')) {
+            $query->where(
+                'product_id',
+                $request->product_id
+            );
+        }
+
+        $balances = $query
+            ->orderBy('product_id')
+            ->paginate(20)
+            ->withQueryString();
+
+        return view(
+            'inventory.index',
+            compact('balances')
+        );
+    }
+
+    /**
+     * Form membuat saldo inventory.
+     *
+     * Biasanya tidak digunakan untuk transaksi normal.
+     * Saldo akan dibuat/diperbarui melalui Stock Movement.
+     */
+    public function create()
+    {
+        $products = Product::where('is_active', true)
+            ->orderBy('name')
+            ->get();
+
+        return view(
+            'inventory_balances.create',
+            compact('products')
+        );
+    }
+
+    /**
+     * Membuat saldo awal inventory.
+     *
+     * Digunakan untuk initial stock/setup,
+     * bukan transaksi stok harian.
+     */
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'product_id' => [
+                'required',
+                'integer',
+                Rule::exists('products', 'id')
+                    ->where('is_active', true),
+            ],
+
+            'quantity' => 'required|numeric|min:0',
+
+            'average_cost' => 'required|numeric|min:0',
+
+            'notes' => 'nullable|string',
+        ]);
+
+        $balance = InventoryBalance::firstOrCreate(
+            [
+                'product_id' =>
+                    $validated['product_id'],
+            ],
+            [
+                'quantity' => 0,
+                'average_cost' => 0,
+                'total_cost' => 0,
+            ]
+        );
+
+        /*
+         * Saldo awal hanya boleh dibuat jika
+         * balance masih kosong.
+         */
+        if ((float) $balance->quantity > 0) {
+            return back()
+                ->withErrors([
+                    'product_id' =>
+                        'Saldo inventory untuk product ini sudah tersedia.',
+                ])
+                ->withInput();
+        }
+
+        $quantity =
+            (float) $validated['quantity'];
+
+        $averageCost =
+            (float) $validated['average_cost'];
+
+        $balance->update([
+            'quantity' => $quantity,
+            'average_cost' => $averageCost,
+            'total_cost' =>
+                $quantity * $averageCost,
+        ]);
+
+        return redirect()
+            ->route('inventory-balances.index')
+            ->with(
+                'success',
+                'Saldo awal inventory berhasil dibuat.'
+            );
+    }
+
+    /**
+     * Menampilkan detail saldo inventory.
+     */
+    public function show(
+        InventoryBalance $inventoryBalance
+    ) {
+        $inventoryBalance->load([
+            'product',
+        ]);
+
+        return view(
+            'inventory_balances.show',
+            compact('inventoryBalance')
+        );
+    }
+
+    /**
+     * Edit saldo inventory.
+     *
+     * Sengaja dibatasi karena perubahan saldo
+     * harus melalui Stock Movement.
+     */
+    public function edit(
+        InventoryBalance $inventoryBalance
+    ) {
+        return redirect()
+            ->route(
+                'inventory-balances.show',
+                $inventoryBalance
+            )
+            ->with(
+                'error',
+                'Saldo inventory tidak diedit langsung. Gunakan Stock Movement.'
+            );
+    }
+
+    /**
+     * Update saldo inventory.
+     *
+     * Tidak digunakan untuk transaksi normal.
+     */
+    public function update(
+        Request $request,
+        InventoryBalance $inventoryBalance
+    ) {
+        return redirect()
+            ->route(
+                'inventory-balances.show',
+                $inventoryBalance
+            )
+            ->with(
+                'error',
+                'Saldo inventory tidak dapat diubah langsung. Gunakan Stock Movement.'
+            );
+    }
+
+    /**
+     * Hapus saldo inventory.
+     *
+     * Tidak diperbolehkan jika saldo sudah digunakan.
+     */
+    public function destroy(
+        InventoryBalance $inventoryBalance
+    ) {
+        if ((float) $inventoryBalance->quantity > 0) {
+            return redirect()
+                ->route(
+                    'inventory-balances.show',
+                    $inventoryBalance
+                )
+                ->with(
+                    'error',
+                    'Saldo inventory dengan quantity masih tersedia tidak dapat dihapus.'
+                );
+        }
+
+        $inventoryBalance->delete();
+
+        return redirect()
+            ->route('inventory-balances.index')
+            ->with(
+                'success',
+                'Saldo inventory berhasil dihapus.'
+            );
+    }
+}
+
+============================================================
+FILE: app\Http\Controllers\InventoryLayerController.php
+============================================================
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\InventoryLayer;
+use App\Models\Product;
+use Illuminate\Http\Request;
+use Illuminate\Validation\Rule;
+
+class InventoryLayerController extends Controller
+{
+    /**
+     * Menampilkan inventory layers.
+     */
+    public function index(Request $request)
+    {
+        $query = InventoryLayer::with([
+            'product',
+            'purchaseItem',
+            'stockMovement',
+        ]);
+
+        if ($request->filled('product_id')) {
+            $query->where(
+                'product_id',
+                $request->product_id
+            );
+        }
+
+        if ($request->filled('status')) {
+            $query->where(
+                'status',
+                $request->status
+            );
+        }
+
+        $layers = $query
+            ->orderBy('received_at')
+            ->paginate(20)
+            ->withQueryString();
+
+        return view(
+            'inventory_layers.index',
+            compact('layers')
+        );
+    }
+
+    /**
+     * Form membuat inventory layer.
+     *
+     * Normalnya layer dibuat otomatis oleh proses
+     * penerimaan barang / stock movement.
+     */
+    public function create()
+    {
+        $products = Product::where('is_active', true)
+            ->orderBy('name')
+            ->get();
+
+        return view(
+            'inventory_layers.create',
+            compact('products')
+        );
+    }
+
+    /**
+     * Membuat layer secara manual.
+     *
+     * Digunakan untuk saldo awal / adjustment tertentu.
+     */
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'product_id' => [
+                'required',
+                'integer',
+                Rule::exists('products', 'id')
+                    ->where('is_active', true),
+            ],
+
+            'quantity' => 'required|numeric|gt:0',
+
+            'remaining_quantity' =>
+                'required|numeric|gt:0',
+
+            'unit_cost' =>
+                'required|numeric|min:0',
+
+            'received_at' =>
+                'required|date',
+
+            'status' => [
+                'nullable',
+                Rule::in([
+                    'OPEN',
+                    'DEPLETED',
+                    'CANCELLED',
+                ]),
+            ],
+        ]);
+
+        $quantity =
+            (float) $validated['quantity'];
+
+        $remainingQuantity =
+            (float) $validated['remaining_quantity'];
+
+        $unitCost =
+            (float) $validated['unit_cost'];
+
+        /*
+         * Remaining quantity tidak boleh
+         * melebihi quantity awal.
+         */
+        if ($remainingQuantity > $quantity) {
+            return back()
+                ->withErrors([
+                    'remaining_quantity' =>
+                        'Remaining quantity tidak boleh lebih besar dari quantity layer.',
+                ])
+                ->withInput();
+        }
+
+        /*
+         * Status otomatis berdasarkan remaining quantity.
+         */
+        if ($remainingQuantity <= 0) {
+            $status = 'DEPLETED';
+        } else {
+            $status = 'OPEN';
+        }
+
+        $layer = InventoryLayer::create([
+            'product_id' =>
+                $validated['product_id'],
+
+            'purchase_item_id' =>
+                $validated['purchase_item_id'] ?? null,
+
+            'stock_movement_id' =>
+                $validated['stock_movement_id'] ?? null,
+
+            'quantity' =>
+                $quantity,
+
+            'remaining_quantity' =>
+                $remainingQuantity,
+
+            'unit_cost' =>
+                $unitCost,
+
+            'total_cost' =>
+                $quantity * $unitCost,
+
+            'received_at' =>
+                $validated['received_at'],
+
+            'status' =>
+                $status,
+        ]);
+
+        return redirect()
+            ->route('inventory-layers.show', $layer)
+            ->with(
+                'success',
+                'Inventory layer berhasil dibuat.'
+            );
+    }
+
+    /**
+     * Menampilkan detail layer.
+     */
+    public function show(InventoryLayer $inventoryLayer)
+    {
+        $inventoryLayer->load([
+            'product',
+            'purchaseItem',
+            'stockMovement',
+        ]);
+
+        return view(
+            'inventory_layers.show',
+            compact('inventoryLayer')
+        );
+    }
+
+    /**
+     * Layer tidak boleh diedit secara manual.
+     */
+    public function edit(
+        InventoryLayer $inventoryLayer
+    ) {
+        return redirect()
+            ->route(
+                'inventory-layers.show',
+                $inventoryLayer
+            )
+            ->with(
+                'error',
+                'Inventory layer tidak diedit langsung. Perubahan dilakukan melalui transaksi inventory.'
+            );
+    }
+
+    /**
+     * Update layer tidak diperbolehkan.
+     *
+     * Remaining quantity harus berubah melalui
+     * proses FIFO allocation.
+     */
+    public function update(
+        Request $request,
+        InventoryLayer $inventoryLayer
+    ) {
+        return redirect()
+            ->route(
+                'inventory-layers.show',
+                $inventoryLayer
+            )
+            ->with(
+                'error',
+                'Inventory layer tidak dapat diubah langsung.'
+            );
+    }
+
+    /**
+     * Layer tidak boleh dihapus sembarangan.
+     */
+    public function destroy(
+        InventoryLayer $inventoryLayer
+    ) {
+        if (
+            $inventoryLayer->status === 'OPEN'
+            && $inventoryLayer->remaining_quantity > 0
+        ) {
+            return redirect()
+                ->route(
+                    'inventory-layers.show',
+                    $inventoryLayer
+                )
+                ->with(
+                    'error',
+                    'Layer yang masih memiliki stok tidak dapat dihapus.'
+                );
+        }
+
+        $inventoryLayer->delete();
+
+        return redirect()
+            ->route('inventory-layers.index')
+            ->with(
+                'success',
+                'Inventory layer berhasil dihapus.'
+            );
+    }
+}
+
+============================================================
+FILE: app\Http\Controllers\StockOpnameController.php
+============================================================
+<?php
+
+namespace App\Http\Controllers;
+
+use App\Models\StockOpname;
+use App\Models\InventoryBalance;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
+
+class StockOpnameController extends Controller
+{
+    /**
+     * Menampilkan daftar stock opname.
+     */
+    public function index(Request $request)
+    {
+        $query = StockOpname::query();
+
+        if ($request->filled('status')) {
+            $query->where(
+                'status',
+                $request->status
+            );
+        }
+
+        $opnames = $query
+            ->latest()
+            ->paginate(20)
+            ->withQueryString();
+
+        return view(
+            'stock_opnames.index',
+            compact('opnames')
+        );
+    }
+
+    /**
+     * Form membuat stock opname.
+     */
+    public function create()
+    {
+        return view(
+            'stock_opnames.create'
+        );
+    }
+
+    /**
+     * Membuat stock opname baru.
+     */
+    public function store(Request $request)
+    {
+        $validated = $request->validate([
+            'code' => [
+                'required',
+                'string',
+                'max:50',
+                'unique:stock_opnames,code',
+            ],
+
+            'opname_date' =>
+                'required|date',
+
+            'notes' =>
+                'nullable|string',
+
+            'status' => [
+                'nullable',
+                Rule::in([
+                    'DRAFT',
+                    'IN_PROGRESS',
+                ]),
+            ],
+        ]);
+
+        $opname = StockOpname::create([
+            'code' =>
+                $validated['code'],
+
+            'opname_date' =>
+                $validated['opname_date'],
+
+            'notes' =>
+                $validated['notes'] ?? null,
+
+            'status' =>
+                $validated['status']
+                ?? 'DRAFT',
+        ]);
+
+        return redirect()
+            ->route(
+                'stock-opnames.show',
+                $opname
+            )
+            ->with(
+                'success',
+                'Stock opname berhasil dibuat.'
+            );
+    }
+
+    /**
+     * Menampilkan detail stock opname.
+     */
+    public function show(
+        StockOpname $stockOpname
+    ) {
+        $stockOpname->load([
+            'items',
+        ]);
+
+        return view(
+            'stock_opnames.show',
+            compact('stockOpname')
+        );
+    }
+
+    /**
+     * Edit stock opname.
+     */
+    public function edit(
+        StockOpname $stockOpname
+    ) {
+        if (
+            in_array(
+                $stockOpname->status,
+                [
+                    'POSTED',
+                    'CANCELLED',
+                ]
+            )
+        ) {
+            return redirect()
+                ->route(
+                    'stock-opnames.show',
+                    $stockOpname
+                )
+                ->with(
+                    'error',
+                    'Stock opname yang sudah final tidak dapat diedit.'
+                );
+        }
+
+        return view(
+            'stock_opnames.edit',
+            compact('stockOpname')
+        );
+    }
+
+    /**
+     * Update header stock opname.
+     */
+    public function update(
+        Request $request,
+        StockOpname $stockOpname
+    ) {
+        if (
+            in_array(
+                $stockOpname->status,
+                [
+                    'POSTED',
+                    'CANCELLED',
+                ]
+            )
+        ) {
+            return back()
+                ->with(
+                    'error',
+                    'Stock opname yang sudah final tidak dapat diubah.'
+                );
+        }
+
+        $validated = $request->validate([
+            'opname_date' =>
+                'required|date',
+
+            'notes' =>
+                'nullable|string',
+
+            'status' => [
+                'required',
+                Rule::in([
+                    'DRAFT',
+                    'IN_PROGRESS',
+                ]),
+            ],
+        ]);
+
+        $stockOpname->update(
+            $validated
+        );
+
+        return redirect()
+            ->route(
+                'stock-opnames.show',
+                $stockOpname
+            )
+            ->with(
+                'success',
+                'Stock opname berhasil diperbarui.'
+            );
+    }
+
+    /**
+     * Membatalkan stock opname.
+     *
+     * Tidak menghapus data agar audit trail tetap ada.
+     */
+    public function destroy(
+        StockOpname $stockOpname
+    ) {
+        if (
+            $stockOpname->status === 'POSTED'
+        ) {
+            return back()
+                ->with(
+                    'error',
+                    'Stock opname yang sudah diposting tidak dapat dibatalkan.'
+                );
+        }
+
+        $stockOpname->update([
+            'status' => 'CANCELLED',
+        ]);
+
+        return redirect()
+            ->route(
+                'stock-opnames.index'
+            )
+            ->with(
+                'success',
+                'Stock opname berhasil dibatalkan.'
+            );
+    }
+}
+
+============================================================
+FILE: C:\Project\bengkel\database\migrations\2026_08_21_153022_create_work_orders_table.php
+============================================================
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('work_orders', function (Blueprint $table) {
+            $table->id();
+
+            $table->string('code', 30)->unique();
+
+            $table->foreignId('customer_id')
+                ->constrained('customers')
+                ->restrictOnDelete();
+
+            $table->foreignId('vehicle_id')
+                ->constrained('vehicles')
+                ->restrictOnDelete();
+
+            $table->dateTime('opened_at');
+
+            $table->dateTime('completed_at')->nullable();
+
+            $table->enum('status', [
+                'OPEN',
+                'IN_PROGRESS',
+                'WAITING_PARTS',
+                'COMPLETED',
+                'CANCELLED',
+            ])->default('OPEN');
+
+            $table->text('complaint')->nullable();
+            $table->text('diagnosis')->nullable();
+            $table->text('notes')->nullable();
+
+            $table->timestamps();
+
+            $table->index('status');
+            $table->index('opened_at');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('work_orders');
+    }
+};
+
+============================================================
+FILE: C:\Project\bengkel\database\migrations\2026_08_21_153023_create_work_order_additional_charges_table.php
+============================================================
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('work_order_additional_charges', function (Blueprint $table) {
+            $table->id();
+
+            $table->foreignId('work_order_id')
+                ->constrained('work_orders')
+                ->cascadeOnDelete();
+
+            $table->string('name');
+            $table->text('description')->nullable();
+
+            $table->decimal('amount', 15, 2)->default(0);
+
+            $table->timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('work_order_additional_charges');
+    }
+};
+
+============================================================
+FILE: C:\Project\bengkel\database\migrations\2026_08_21_153023_create_work_order_items_table.php
+============================================================
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('work_order_items', function (Blueprint $table) {
+            $table->id();
+
+            $table->foreignId('work_order_id')
+                ->constrained('work_orders')
+                ->cascadeOnDelete();
+
+            $table->enum('item_type', [
+                'SERVICE',
+                'PRODUCT',
+            ]);
+
+            $table->foreignId('service_id')
+                ->nullable()
+                ->constrained('services')
+                ->restrictOnDelete();
+
+            $table->foreignId('product_id')
+                ->nullable()
+                ->constrained('products')
+                ->restrictOnDelete();
+
+            $table->decimal('quantity', 15, 3)->default(1);
+
+            $table->decimal('unit_price', 15, 2)->default(0);
+
+            $table->decimal('discount', 15, 2)->default(0);
+
+            $table->decimal('subtotal', 15, 2)->default(0);
+
+            $table->text('notes')->nullable();
+
+            $table->timestamps();
+
+            $table->index('item_type');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('work_order_items');
+    }
+};
+
+============================================================
+FILE: C:\Project\bengkel\database\migrations\2026_08_21_153024_create_purchases_table.php
+============================================================
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('purchases', function (Blueprint $table) {
+            $table->id();
+
+            $table->string('code', 30)->unique();
+
+            $table->foreignId('supplier_id')
+                ->constrained('suppliers')
+                ->restrictOnDelete();
+
+            $table->dateTime('purchased_at');
+
+            $table->enum('status', [
+                'DRAFT',
+                'ORDERED',
+                'RECEIVED',
+                'CANCELLED',
+            ])->default('DRAFT');
+
+            $table->decimal('subtotal', 15, 2)->default(0);
+            $table->decimal('discount', 15, 2)->default(0);
+            $table->decimal('tax', 15, 2)->default(0);
+            $table->decimal('total', 15, 2)->default(0);
+
+            $table->text('notes')->nullable();
+
+            $table->timestamps();
+
+            $table->index('status');
+            $table->index('purchased_at');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('purchases');
+    }
+};
+
+============================================================
+FILE: C:\Project\bengkel\database\migrations\2026_08_21_153025_create_purchase_items_table.php
+============================================================
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('purchase_items', function (Blueprint $table) {
+            $table->id();
+
+            $table->foreignId('purchase_id')
+                ->constrained('purchases')
+                ->cascadeOnDelete();
+
+            $table->foreignId('product_id')
+                ->constrained('products')
+                ->restrictOnDelete();
+
+            $table->decimal('quantity', 15, 3);
+
+            $table->decimal('unit_price', 15, 2);
+
+            $table->decimal('discount', 15, 2)->default(0);
+
+            $table->decimal('subtotal', 15, 2)->default(0);
+
+            $table->timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('purchase_items');
+    }
+};
+
+============================================================
+FILE: C:\Project\bengkel\database\migrations\2026_08_21_153026_create_inventory_balances_table.php
+============================================================
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('inventory_balances', function (Blueprint $table) {
+            $table->id();
+
+            $table->foreignId('product_id')
+                ->constrained('products')
+                ->restrictOnDelete();
+
+            $table->decimal('quantity', 15, 3)->default(0);
+
+            $table->decimal('reserved_quantity', 15, 3)->default(0);
+
+            $table->decimal('available_quantity', 15, 3)->default(0);
+
+            $table->decimal('average_cost', 15, 2)->default(0);
+
+            $table->timestamps();
+
+            $table->unique('product_id');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('inventory_balances');
+    }
+};
+
+============================================================
+FILE: C:\Project\bengkel\database\migrations\2026_08_21_153026_create_inventory_layers_table.php
+============================================================
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('inventory_layers', function (Blueprint $table) {
+            $table->id();
+
+            $table->foreignId('product_id')
+                ->constrained('products')
+                ->restrictOnDelete();
+
+            $table->decimal('quantity', 15, 3);
+
+            $table->decimal('remaining_quantity', 15, 3);
+
+            $table->decimal('unit_cost', 15, 2);
+
+            $table->dateTime('received_at');
+
+            $table->timestamps();
+
+            $table->index('received_at');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('inventory_layers');
+    }
+};
+
+============================================================
+FILE: C:\Project\bengkel\database\migrations\2026_08_21_153027_create_stock_allocations_table.php
+============================================================
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('stock_allocations', function (Blueprint $table) {
+            $table->id();
+
+            $table->foreignId('product_id')
+                ->constrained('products')
+                ->restrictOnDelete();
+
+            $table->foreignId('work_order_id')
+                ->nullable()
+                ->constrained('work_orders')
+                ->restrictOnDelete();
+
+            $table->decimal('quantity', 15, 3);
+
+            $table->enum('status', [
+                'RESERVED',
+                'RELEASED',
+                'CONSUMED',
+            ])->default('RESERVED');
+
+            $table->timestamps();
+
+            $table->index('status');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('stock_allocations');
+    }
+};
+
+============================================================
+FILE: C:\Project\bengkel\database\migrations\2026_08_21_153028_create_stock_opnames_table.php
+============================================================
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('stock_opnames', function (Blueprint $table) {
+            $table->id();
+
+            $table->string('code', 30)->unique();
+
+            $table->date('opname_date');
+
+            $table->enum('status', [
+                'DRAFT',
+                'COMPLETED',
+                'CANCELLED',
+            ])->default('DRAFT');
+
+            $table->text('notes')->nullable();
+
+            $table->timestamps();
+
+            $table->index('opname_date');
+            $table->index('status');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('stock_opnames');
+    }
+};
+
+============================================================
+FILE: C:\Project\bengkel\database\migrations\2026_08_21_153029_create_stock_opname_items_table.php
+============================================================
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('stock_opname_items', function (Blueprint $table) {
+            $table->id();
+
+            $table->foreignId('stock_opname_id')
+                ->constrained('stock_opnames')
+                ->cascadeOnDelete();
+
+            $table->foreignId('product_id')
+                ->constrained('products')
+                ->restrictOnDelete();
+
+            $table->decimal('system_quantity', 15, 3);
+
+            $table->decimal('physical_quantity', 15, 3);
+
+            $table->decimal('difference_quantity', 15, 3);
+
+            $table->text('notes')->nullable();
+
+            $table->timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('stock_opname_items');
+    }
+};
+
+============================================================
+FILE: C:\Project\bengkel\database\migrations\2026_08_22_064636_add_work_order_fields_to_work_orders_table.php
+============================================================
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('work_orders', function (Blueprint $table) {
+            $table->enum('type', [
+                'REGULAR',
+                'WARRANTY',
+            ])
+            ->default('REGULAR')
+            ->after('status');
+
+            $table->dateTime('started_at')
+                ->nullable()
+                ->after('type');
+
+            $table->dateTime('cancelled_at')
+                ->nullable()
+                ->after('completed_at');
+
+            $table->decimal('subtotal', 15, 2)
+                ->default(0)
+                ->after('notes');
+
+            $table->decimal('discount', 15, 2)
+                ->default(0)
+                ->after('subtotal');
+
+            $table->decimal('grand_total', 15, 2)
+                ->default(0)
+                ->after('discount');
+
+            $table->text('cancellation_reason')
+                ->nullable()
+                ->after('grand_total');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('work_orders', function (Blueprint $table) {
+            $table->dropColumn([
+                'type',
+                'started_at',
+                'cancelled_at',
+                'subtotal',
+                'discount',
+                'grand_total',
+                'cancellation_reason',
+            ]);
+        });
+    }
+};
+
+============================================================
+FILE: C:\Project\bengkel\database\migrations\2026_08_22_064812_update_work_order_items_table.php
+============================================================
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('work_order_items', function (Blueprint $table) {
+            $table->string('item_code', 50)
+                ->nullable()
+                ->after('product_id');
+
+            $table->string('item_name')
+                ->nullable()
+                ->after('item_code');
+
+            $table->string('unit', 20)
+                ->default('PCS')
+                ->after('item_name');
+
+            $table->decimal('discount_amount', 15, 2)
+                ->default(0)
+                ->after('unit_price');
+
+            $table->decimal('unit_cost', 15, 2)
+                ->default(0)
+                ->after('discount_amount');
+
+            $table->decimal('total_cost', 15, 2)
+                ->default(0)
+                ->after('subtotal');
+
+            $table->string('status', 30)
+                ->default('PENDING')
+                ->after('total_cost');
+        });
+
+        Schema::table('work_order_items', function (Blueprint $table) {
+            $table->dropColumn('discount');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('work_order_items', function (Blueprint $table) {
+            $table->decimal('discount', 15, 2)
+                ->default(0)
+                ->after('unit_price');
+
+            $table->dropColumn([
+                'item_code',
+                'item_name',
+                'unit',
+                'discount_amount',
+                'unit_cost',
+                'total_cost',
+                'status',
+            ]);
+        });
+    }
+};
+
+============================================================
+FILE: C:\Project\bengkel\database\migrations\2026_08_22_125838_change_payments_invoice_to_work_order.php
+============================================================
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('payments', function (Blueprint $table) {
+            $table->dropForeign(['invoice_id']);
+            $table->dropColumn('invoice_id');
+
+            $table->foreignId('work_order_id')
+                ->after('code')
+                ->constrained('work_orders')
+                ->cascadeOnDelete();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('payments', function (Blueprint $table) {
+            $table->dropForeign(['work_order_id']);
+            $table->dropColumn('work_order_id');
+
+            $table->unsignedBigInteger('invoice_id')
+                ->nullable()
+                ->after('code');
+
+            $table->foreign('invoice_id')
+                ->references('id')
+                ->on('invoices')
+                ->nullOnDelete();
+        });
+    }
+};
+
+============================================================
+FILE: C:\Project\bengkel\database\migrations\2026_08_22_174628_remove_vehicle_id_from_work_orders.php
+============================================================
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        if (Schema::hasColumn('work_orders', 'vehicle_id')) {
+            Schema::table('work_orders', function (Blueprint $table) {
+                $table->dropForeign(['vehicle_id']);
+                $table->dropColumn('vehicle_id');
+            });
+        }
+    }
+
+    public function down(): void
+    {
+        Schema::table('work_orders', function (Blueprint $table) {
+            $table->foreignId('vehicle_id')
+                ->nullable()
+                ->constrained('vehicles')
+                ->restrictOnDelete();
+        });
+    }
+};
+
+============================================================
+FILE: C:\Project\bengkel\database\migrations\2026_08_23_060341_update_product_prices_for_inventory_system.php
+============================================================
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('products', function (Blueprint $table) {
+            $table->renameColumn(
+                'default_purchase_price',
+                'last_buy_price'
+            );
+
+            $table->renameColumn(
+                'default_selling_price',
+                'selling_price'
+            );
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('products', function (Blueprint $table) {
+            $table->renameColumn(
+                'last_buy_price',
+                'default_purchase_price'
+            );
+
+            $table->renameColumn(
+                'selling_price',
+                'default_selling_price'
+            );
+        });
+    }
+};
+
+============================================================
+FILE: C:\Project\bengkel\database\migrations\2026_08_23_061331_align_purchases_with_inventory_workflow.php
+============================================================
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('purchases', function (Blueprint $table) {
+
+            $table->foreignId('work_order_id')
+                ->nullable()
+                ->after('supplier_id')
+                ->constrained('work_orders')
+                ->nullOnDelete();
+
+            $table->enum('purchase_type', [
+                'GENERAL',
+                'WO',
+            ])
+                ->default('GENERAL')
+                ->after('work_order_id');
+
+            $table->date('purchase_date')
+                ->nullable()
+                ->after('purchase_type');
+
+            $table->dateTime('received_at')
+                ->nullable()
+                ->after('purchase_date');
+
+            $table->decimal('grand_total', 15, 2)
+                ->default(0)
+                ->after('discount');
+
+            $table->foreignId('created_by')
+                ->nullable()
+                ->after('notes')
+                ->constrained('users')
+                ->nullOnDelete();
+        });
+
+        Schema::table('purchases', function (Blueprint $table) {
+            $table->dropColumn([
+                'purchased_at',
+                'tax',
+                'total',
+            ]);
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('purchases', function (Blueprint $table) {
+            $table->dateTime('purchased_at')
+                ->nullable();
+
+            $table->decimal('tax', 15, 2)
+                ->default(0);
+
+            $table->decimal('total', 15, 2)
+                ->default(0);
+        });
+
+        Schema::table('purchases', function (Blueprint $table) {
+            $table->dropForeign(['work_order_id']);
+            $table->dropForeign(['created_by']);
+
+            $table->dropColumn([
+                'work_order_id',
+                'purchase_type',
+                'purchase_date',
+                'received_at',
+                'grand_total',
+                'created_by',
+            ]);
+        });
+    }
+};
+
+============================================================
+FILE: C:\Project\bengkel\database\migrations\2026_08_23_061346_align_purchase_items_with_inventory_workflow.php
+============================================================
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('purchase_items', function (Blueprint $table) {
+
+            $table->renameColumn(
+                'unit_price',
+                'unit_cost'
+            );
+
+            $table->decimal('selling_price', 15, 2)
+                ->default(0)
+                ->after('unit_cost');
+
+            $table->decimal('discount_amount', 15, 2)
+                ->default(0)
+                ->after('selling_price');
+
+            $table->decimal('received_quantity', 15, 3)
+                ->default(0)
+                ->after('subtotal');
+
+            $table->text('notes')
+                ->nullable()
+                ->after('received_quantity');
+        });
+
+        Schema::table('purchase_items', function (Blueprint $table) {
+            $table->dropColumn('discount');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('purchase_items', function (Blueprint $table) {
+            $table->renameColumn(
+                'unit_cost',
+                'unit_price'
+            );
+
+            $table->dropColumn([
+                'selling_price',
+                'discount_amount',
+                'received_quantity',
+                'notes',
+            ]);
+        });
+
+        Schema::table('purchase_items', function (Blueprint $table) {
+            $table->decimal('discount', 15, 2)
+                ->default(0)
+                ->after('unit_price');
+        });
+    }
+};
+
+============================================================
+FILE: C:\Project\bengkel\database\migrations\2026_08_23_063330_add_new_product_purchase_fields_to_work_order_items.php
+============================================================
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('work_order_items', function (Blueprint $table) {
+
+            $table->foreignId('category_id')
+                ->nullable()
+                ->after('product_id')
+                ->constrained('product_categories')
+                ->restrictOnDelete();
+
+            $table->foreignId('supplier_id')
+                ->nullable()
+                ->after('category_id')
+                ->constrained('suppliers')
+                ->restrictOnDelete();
+
+            $table->string('barcode', 100)
+                ->nullable()
+                ->after('item_name');
+
+            $table->string('brand', 100)
+                ->nullable()
+                ->after('barcode');
+
+            $table->enum('stock_type', [
+                'STOCK',
+                'NON_STOCK',
+            ])
+                ->default('STOCK')
+                ->after('unit');
+
+            $table->decimal('minimum_stock', 15, 3)
+                ->default(0)
+                ->after('quantity');
+
+            $table->decimal('selling_price', 15, 2)
+                ->default(0)
+                ->after('unit_cost');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('work_order_items', function (Blueprint $table) {
+
+            $table->dropForeign(['category_id']);
+            $table->dropForeign(['supplier_id']);
+
+            $table->dropColumn([
+                'category_id',
+                'supplier_id',
+                'barcode',
+                'brand',
+                'stock_type',
+                'minimum_stock',
+                'selling_price',
+            ]);
+        });
+    }
+};
+
+============================================================
+FILE: C:\Project\bengkel\database\migrations\2026_08_23_063822_align_inventory_layers_with_inventory_workflow.php
+============================================================
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('inventory_layers', function (Blueprint $table) {
+
+            $table->foreignId('purchase_item_id')
+                ->nullable()
+                ->after('product_id')
+                ->constrained('purchase_items')
+                ->nullOnDelete();
+
+            $table->foreignId('stock_movement_id')
+                ->nullable()
+                ->after('purchase_item_id')
+                ->constrained('stock_movements')
+                ->nullOnDelete();
+
+            $table->decimal('total_cost', 15, 2)
+                ->default(0)
+                ->after('unit_cost');
+
+            $table->enum('status', [
+                'ACTIVE',
+                'DEPLETED',
+                'CANCELLED',
+            ])
+                ->default('ACTIVE')
+                ->after('received_at');
+
+            $table->index('purchase_item_id');
+            $table->index('stock_movement_id');
+            $table->index('status');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('inventory_layers', function (Blueprint $table) {
+
+            $table->dropForeign([
+                'purchase_item_id',
+            ]);
+
+            $table->dropForeign([
+                'stock_movement_id',
+            ]);
+
+            $table->dropIndex([
+                'inventory_layers_purchase_item_id_index',
+            ]);
+
+            $table->dropIndex([
+                'inventory_layers_stock_movement_id_index',
+            ]);
+
+            $table->dropIndex([
+                'inventory_layers_status_index',
+            ]);
+
+            $table->dropColumn([
+                'purchase_item_id',
+                'stock_movement_id',
+                'total_cost',
+                'status',
+            ]);
+        });
+    }
+};
+
+============================================================
+FILE: C:\Project\bengkel\database\migrations\2026_08_23_063955_add_work_order_item_id_to_purchase_items.php
+============================================================
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('purchase_items', function (Blueprint $table) {
+            $table->foreignId('work_order_item_id')
+                ->nullable()
+                ->after('purchase_id')
+                ->constrained('work_order_items')
+                ->nullOnDelete();
+
+            $table->index('work_order_item_id');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('purchase_items', function (Blueprint $table) {
+            $table->dropForeign([
+                'work_order_item_id',
+            ]);
+
+            $table->dropIndex([
+                'purchase_items_work_order_item_id_index',
+            ]);
+
+            $table->dropColumn('work_order_item_id');
+        });
+    }
+};
+
+============================================================
+FILE: C:\Project\bengkel\database\migrations\2026_08_23_070000_sync_inventory_layers_fifo.php
+============================================================
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        // Changes for inventory_layers are already handled by
+        // 2026_08_23_063822_align_inventory_layers_with_inventory_workflow.php.
+    }
+
+    public function down(): void
+    {
+        // Intentionally left empty.
+    }
+};
+
+============================================================
+FILE: C:\Project\bengkel\database\migrations\2026_08_23_145158_create_inventory_layer_consumptions_table.php
+============================================================
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('inventory_layer_consumptions', function (Blueprint $table) {
+            $table->id();
+
+            $table->foreignId('inventory_layer_id')
+                ->constrained('inventory_layers')
+                ->restrictOnDelete();
+
+            $table->foreignId('stock_movement_id')
+                ->constrained('stock_movements')
+                ->restrictOnDelete();
+
+            $table->foreignId('work_order_id')
+                ->nullable()
+                ->constrained('work_orders')
+                ->nullOnDelete();
+
+            $table->foreignId('work_order_item_id')
+                ->nullable()
+                ->constrained('work_order_items')
+                ->nullOnDelete();
+
+            $table->decimal('quantity', 15, 3);
+            $table->decimal('unit_cost', 15, 2);
+            $table->decimal('total_cost', 15, 2);
+
+            $table->timestamps();
+
+            $table->index(
+                ['inventory_layer_id', 'created_at'],
+                'ilc_layer_created_idx'
+            );
+
+            $table->index(
+                ['work_order_id', 'work_order_item_id'],
+                'ilc_wo_item_idx'
+            );
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('inventory_layer_consumptions');
+    }
+};
+

@@ -17,7 +17,7 @@ class StockAllocation extends Model
     protected function casts(): array
     {
         return [
-            'quantity' => 'decimal:3',
+            'quantity' => 'integer',
         ];
     }
 
@@ -37,3 +37,4 @@ class StockAllocation extends Model
         return $this->belongsTo(Product::class);
     }
 }
+

@@ -78,7 +78,7 @@ class InventoryLayerController extends Controller
                     ->where('is_active', true),
             ],
 
-            'quantity' => 'required|numeric|gt:0',
+            'quantity' => 'required|integer|gt:0',
 
             'remaining_quantity' =>
                 'required|numeric|gt:0',
@@ -100,10 +100,10 @@ class InventoryLayerController extends Controller
         ]);
 
         $quantity =
-            (float) $validated['quantity'];
+            (int) $validated['quantity'];
 
         $remainingQuantity =
-            (float) $validated['remaining_quantity'];
+            (int) $validated['remaining_quantity'];
 
         $unitCost =
             (float) $validated['unit_cost'];
@@ -253,3 +253,4 @@ class InventoryLayerController extends Controller
             );
     }
 }
+

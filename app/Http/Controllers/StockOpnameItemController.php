@@ -153,7 +153,7 @@ class StockOpnameItemController extends Controller
 
         $systemQuantity =
             $balance
-                ? (float) $balance->quantity
+                ? (int) $balance->quantity
                 : 0;
 
         $physicalQuantity =

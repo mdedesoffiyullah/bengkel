@@ -14,7 +14,7 @@ class InventoryFifoService
 {
     public function receivePurchaseItem(
         PurchaseItem $purchaseItem,
-        float $quantity,
+        int $quantity,
         ?string $receivedAt = null
     ): StockMovement {
         return DB::transaction(function () use (
@@ -30,8 +30,8 @@ class InventoryFifoService
 
             $purchaseItem->loadMissing('purchase');
 
-            $alreadyReceived = (float) $purchaseItem->received_quantity;
-            $orderedQuantity = (float) $purchaseItem->quantity;
+            $alreadyReceived = (int) $purchaseItem->received_quantity;
+            $orderedQuantity = (int) $purchaseItem->quantity;
 
             if (($alreadyReceived + $quantity) > $orderedQuantity) {
                 throw new RuntimeException(
@@ -81,7 +81,7 @@ class InventoryFifoService
                 'status' => 'ACTIVE',
             ]);
 
-            $oldQuantity = (float) $balance->quantity;
+            $oldQuantity = (int) $balance->quantity;
             $oldAverageCost = (float) $balance->average_cost;
 
             $oldTotalCost = $oldQuantity * $oldAverageCost;
@@ -92,7 +92,7 @@ class InventoryFifoService
                 ? $newTotalCost / $newQuantity
                 : 0;
 
-            $reserved = (float) $balance->reserved_quantity;
+            $reserved = (int) $balance->reserved_quantity;
 
             $balance->update([
                 'quantity' => $newQuantity,
@@ -115,7 +115,7 @@ class InventoryFifoService
     public function consumeForWorkOrder(
         WorkOrder $workOrder,
         int $productId,
-        float $quantity,
+        int $quantity,
         ?int $workOrderItemId = null
     ): float {
         return DB::transaction(function () use (
@@ -141,10 +141,10 @@ class InventoryFifoService
                 );
             }
 
-            $physicalStock = (float) $balance->quantity;
+            $physicalStock = (int) $balance->quantity;
 
             $available = $physicalStock -
-                (float) $balance->reserved_quantity;
+                (int) $balance->reserved_quantity;
 
             if ($quantity > $physicalStock) {
                 throw new RuntimeException(
@@ -189,7 +189,7 @@ class InventoryFifoService
                 }
 
                 $layerRemaining =
-                    (float) $layer->remaining_quantity;
+                    (int) $layer->remaining_quantity;
 
                 $consume = min(
                     $remainingToConsume,
@@ -232,7 +232,7 @@ class InventoryFifoService
                 );
             }
 
-            $oldQuantity = (float) $balance->quantity;
+            $oldQuantity = (int) $balance->quantity;
             $newQuantity = $oldQuantity - $quantity;
 
             $oldAverageCost = (float) $balance->average_cost;
@@ -247,7 +247,7 @@ class InventoryFifoService
                 ? $newTotalCost / $newQuantity
                 : 0;
 
-            $reserved = (float) $balance->reserved_quantity;
+            $reserved = (int) $balance->reserved_quantity;
 
             $balance->update([
                 'quantity' => $newQuantity,
@@ -268,3 +268,4 @@ class InventoryFifoService
         });
     }
 }
+

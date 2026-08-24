@@ -1,4 +1,4 @@
-﻿@extends('layouts.app')
+@extends('layouts.app')
 
 @section('content')
 
@@ -885,7 +885,7 @@ function addItem()
                            step="1"
                            min="0"
                            name="items[${index}][purchase_quantity]"
-                           value=""
+                           value="0"
                            class="w-full rounded-lg border-gray-300 purchase-quantity-input">
 
                     <p class="text-xs text-gray-500 mt-1">
@@ -1050,58 +1050,6 @@ function getItemPrice(row)
     return parseFloat(
         option?.dataset.price || 0
     );
-}
-/*
- * NORMALISASI QUANTITY
- *
- * 01   -> 1
- * 001  -> 1
- * 0005 -> 5
- * kosong tetap kosong
- */
-function normalizeQuantityInput(element)
-{
-    if (!element) {
-        return;
-    }
-
-    const value = element.value;
-
-    if (value === '') {
-        return;
-    }
-
-    const normalized = value.replace(/^0+(?=\d)/, '');
-
-    if (normalized !== value) {
-        element.value = normalized;
-    }
-}
-
-function attachQuantityNormalizationListeners()
-{
-    document
-        .querySelectorAll(
-            '.purchase-quantity-input, .wo-quantity-input'
-        )
-        .forEach(element => {
-
-            element.addEventListener(
-                'input',
-                function () {
-
-                    normalizeQuantityInput(this);
-
-                    if (
-                        typeof calculateRemainingQuantities ===
-                        'function'
-                    ) {
-                        calculateRemainingQuantities();
-                    }
-                }
-            );
-
-        });
 }
 function calculateRemainingQuantities()
 {
@@ -1631,8 +1579,6 @@ calculateWorkOrderTotal();
 </script>
 
 @endsection
-
-
 
 
 

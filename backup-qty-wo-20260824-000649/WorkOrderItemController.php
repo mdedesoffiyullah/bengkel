@@ -119,7 +119,7 @@ class WorkOrderItemController extends Controller
 
             'description' => 'nullable|string',
 
-            'quantity' => 'required|integer|min:1',
+            'quantity' => 'required|numeric|min:0.001',
 
             'unit_price' => 'required|numeric|min:0',
 
@@ -130,7 +130,7 @@ class WorkOrderItemController extends Controller
             'notes' => 'nullable|string',
         ]);
 
-        $quantity = (int) $validated['quantity'];
+        $quantity = (float) $validated['quantity'];
         $unitPrice = (float) $validated['unit_price'];
         $discount = (float) ($validated['discount'] ?? 0);
 
@@ -234,7 +234,7 @@ class WorkOrderItemController extends Controller
 
             'description' => 'nullable|string',
 
-            'quantity' => 'required|integer|min:1',
+            'quantity' => 'required|numeric|min:0.001',
 
             'unit_price' => 'required|numeric|min:0',
 
@@ -245,7 +245,7 @@ class WorkOrderItemController extends Controller
             'notes' => 'nullable|string',
         ]);
 
-        $quantity = (int) $validated['quantity'];
+        $quantity = (float) $validated['quantity'];
         $unitPrice = (float) $validated['unit_price'];
         $discount = (float) ($validated['discount'] ?? 0);
 
@@ -299,4 +299,3 @@ class WorkOrderItemController extends Controller
             );
     }
 }
-

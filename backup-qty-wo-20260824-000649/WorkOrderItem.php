@@ -23,9 +23,6 @@ class WorkOrderItem extends Model
         'unit',
         'stock_type',
         'quantity',
-        'purchase_quantity',
-        'wo_quantity',
-        'remaining_quantity',
         'minimum_stock',
 
         // Harga
@@ -45,10 +42,7 @@ class WorkOrderItem extends Model
     protected function casts(): array
     {
         return [
-            'quantity' => 'integer',
-            'purchase_quantity' => 'integer',
-            'wo_quantity' => 'integer',
-            'remaining_quantity' => 'integer',
+            'quantity' => 'decimal:3',
             'minimum_stock' => 'decimal:3',
 
             'unit_price' => 'decimal:2',
@@ -86,5 +80,3 @@ class WorkOrderItem extends Model
         return $this->belongsTo(Supplier::class, 'supplier_id');
     }
 }
-
-

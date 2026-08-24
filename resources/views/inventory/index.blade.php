@@ -107,11 +107,11 @@
 
                         @php
 
-                            $quantity = (float) $balance->quantity;
+                            $quantity = (int) $balance->quantity;
 
-                            $reserved = (float) $balance->reserved_quantity;
+                            $reserved = (int) $balance->reserved_quantity;
 
-                            $available = (float) $balance->available_quantity;
+                            $available = (int) $balance->available_quantity;
 
                             $minimum = (float) (
                                 $balance->product->minimum_stock ?? 0
@@ -159,12 +159,7 @@
                             {{-- Quantity --}}
                             <td class="px-6 py-4 text-right font-semibold text-gray-900">
 
-                                {{ number_format(
-                                    $quantity,
-                                    3,
-                                    ',',
-                                    '.'
-                                ) }}
+                                {{ number_format($quantity, 0, ',', '.') }}
 
                             </td>
 
@@ -172,12 +167,7 @@
                             {{-- Reserved --}}
                             <td class="px-6 py-4 text-right text-gray-600">
 
-                                {{ number_format(
-                                    $reserved,
-                                    3,
-                                    ',',
-                                    '.'
-                                ) }}
+                                {{ number_format($reserved, 0, ',', '.') }}
 
                             </td>
 
@@ -185,12 +175,7 @@
                             {{-- Available --}}
                             <td class="px-6 py-4 text-right font-semibold text-gray-900">
 
-                                {{ number_format(
-                                    $available,
-                                    3,
-                                    ',',
-                                    '.'
-                                ) }}
+                                {{ number_format($available, 0, ',', '.') }}
 
                             </td>
 
@@ -283,3 +268,4 @@
 </div>
 
 @endsection
+

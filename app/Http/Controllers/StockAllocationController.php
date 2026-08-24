@@ -137,11 +137,11 @@ class StockAllocationController extends Controller
                 }
 
                 $available =
-                    (float) $balance->quantity
-                    - (float) $balance->reserved_quantity;
+                    (int) $balance->quantity
+                    - (int) $balance->reserved_quantity;
 
                 $requested =
-                    (float) $validated['quantity'];
+                    (int) $validated['quantity'];
 
                 if ($requested > $available) {
                     throw new \RuntimeException(
@@ -173,9 +173,9 @@ class StockAllocationController extends Controller
 
                 $balance->update([
                     'available_quantity' =>
-                        (float) $balance->quantity
+                        (int) $balance->quantity
                         - (
-                            (float) $balance->reserved_quantity
+                            (int) $balance->reserved_quantity
                             + $requested
                         ),
                 ]);
@@ -280,7 +280,7 @@ class StockAllocationController extends Controller
 
             if ($balance) {
                 $quantity =
-                    (float) $stockAllocation->quantity;
+                    (int) $stockAllocation->quantity;
 
                 $balance->decrement(
                     'reserved_quantity',
@@ -289,9 +289,9 @@ class StockAllocationController extends Controller
 
                 $balance->update([
                     'available_quantity' =>
-                        (float) $balance->quantity
+                        (int) $balance->quantity
                         - (
-                            (float) $balance->reserved_quantity
+                            (int) $balance->reserved_quantity
                             - $quantity
                         ),
                 ]);

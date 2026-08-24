@@ -1037,7 +1037,7 @@ function addItem(item = null)
                         </label>
 
                         <input type="number"
-                               step="1"
+                               step="0.001"
                                min="0"
                                name="items[${index}][product_minimum_stock]"
                                value="${item?.product?.minimum_stock ?? 0}"
@@ -1057,62 +1057,11 @@ function addItem(item = null)
                     </label>
 
                     <input type="number"
-                           step="1"
+                           step="0.001"
                            min="0.001"
                            name="items[${index}][quantity]"
                            value="${item?.quantity ?? 1}"
                            class="w-full rounded-lg border-gray-300">
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium mb-1">
-                        Pembelian Total
-                    </label>
-
-                    <input type="number"
-                           step="1"
-                           min="0"
-                           name="items[${index}][purchase_quantity]"
-                           value="${item?.purchase_quantity ?? 0}"
-                           class="w-full rounded-lg border-gray-300 purchase-quantity-input">
-
-                    <p class="text-xs text-gray-500 mt-1">
-                        Total barang yang masuk dari Purchase
-                    </p>
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium mb-1">
-                        WO
-                    </label>
-
-                    <input type="number"
-                           step="1"
-                           min="0"
-                           name="items[${index}][quantity]"
-                           value="${item?.quantity ?? 1}"
-                           class="w-full rounded-lg border-gray-300 wo-quantity-input">
-
-                    <p class="text-xs text-gray-500 mt-1">
-                        Barang yang dipakai Work Order
-                    </p>
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium mb-1">
-                        Sisa
-                    </label>
-
-                    <input type="number"
-                           step="1"
-                           name="items[${index}][remaining_quantity]"
-                           value="${item?.remaining_quantity ?? 0}"
-                           readonly
-                           class="w-full rounded-lg border-gray-300 bg-gray-100 remaining-quantity-input">
-
-                    <p class="text-xs text-gray-500 mt-1">
-                        Pembelian - WO
-                    </p>
                 </div>
 
                 <div>
@@ -1237,5 +1186,3 @@ if (existingItems.length === 0) {
 </script>
 
 @endsection
-
-

@@ -61,7 +61,7 @@ class WorkOrderController extends Controller
             $workOrder = WorkOrder::create([
                 'code' => $validated['code'],
                 'status' => $validated['status'] ?? 'OPEN',
-                'customer_id' => $customer?->id,
+                'customer_id' => $customer->id,
                 'type' => $validated['type'] ?? 'REGULAR',
                 'opened_at' => $validated['opened_at'] ?? now(),
                 'complaint' => $validated['complaint'] ?? null,
@@ -482,41 +482,7 @@ class WorkOrderController extends Controller
         ?WorkOrder $workOrder = null
     ): array {
 
-        $items = $request->input('items', []);
-
-        foreach ($items as $index => $item) {
-
-            foreach ([
-                'purchase_quantity',
-                'wo_quantity',
-                'remaining_quantity',
-            ] as $quantityField) {
-
-                if (
-                    array_key_exists($quantityField, $item)
-                ) {
-
-                    $value = trim(
-                        (string) $item[$quantityField]
-                    );
-
-                    if ($value === '') {
-
-                        $items[$index][$quantityField] = null;
-
-                    } else {
-
-                        $items[$index][$quantityField] =
-                            (int) $value;
-                    }
-                }
-            }
-        }
-
-        $request->merge([
-            'items' => $items,
-        ]);
-return $request->validate([
+        return $request->validate([
             'code' => [
                 'required',
                 'string',
@@ -555,12 +521,7 @@ return $request->validate([
                 Rule::in(['EXISTING', 'NEW']),
             ],
 
-            'customer_id' => [
-                'required_if:customer_mode,EXISTING',
-                'nullable',
-                'integer',
-                'exists:customers,id',
-            ],
+            'customer_id' => 'nullable|integer|exists:customers,id',
             'customer_code' => 'nullable|string|max:30',
             'customer_name' => 'nullable|string|max:255',
             'customer_phone' => 'nullable|string|max:30',
@@ -638,34 +599,24 @@ return $request->validate([
             /*
              * ITEM USAGE
              */
-            'items.*.quantity' => 'nullable|integer|min:1',
-            'items.*.purchase_quantity' => 'nullable|integer|min:0',
-            'items.*.wo_quantity' => 'nullable|integer|min:0',
-            'items.*.remaining_quantity' => 'nullable|integer|min:0',
+            'items.*.quantity' => 'nullable|numeric|min:0.001',
             'items.*.discount_amount' => 'nullable|numeric|min:0',
             'items.*.notes' => 'nullable|string',
         ]);
     }
 
-    private function resolveCustomer(array $validated): ?Customer
+    private function resolveCustomer(array $validated): Customer
     {
         if (($validated['customer_mode'] ?? 'EXISTING') === 'EXISTING') {
 
-            $customerId = $validated['customer_id'] ?? null;
-
-            if (!$customerId) {
-                abort(
-                    422,
-                    'Silakan pilih Customer terlebih dahulu.'
-                );
-            }
-
-            $customer = Customer::find($customerId);
+            $customer = Customer::find(
+                $validated['customer_id'] ?? null
+            );
 
             if (!$customer) {
                 abort(
                     422,
-                    'Customer yang dipilih tidak ditemukan.'
+                    'Customer tidak ditemukan.'
                 );
             }
 
@@ -676,14 +627,11 @@ return $request->validate([
             $validated['customer_name'] ?? ''
         );
 
-        /*
-         * CUSTOMER OPTIONAL
-         *
-         * Work Order boleh dibuat tanpa customer.
-         * Customer dapat ditambahkan kemudian melalui Edit WO.
-         */
         if ($name === '') {
-            return null;
+            abort(
+                422,
+                'Nama customer wajib diisi.'
+            );
         }
 
         $code = trim(
@@ -729,15 +677,13 @@ return $request->validate([
 
         foreach ($items as $item) {
 
-            $woQuantity = (float) (
-                $item['wo_quantity'] ?? 0
+            $quantity = (float) (
+                $item['quantity'] ?? 0
             );
 
-            if ($woQuantity <= 0) {
+            if ($quantity <= 0) {
                 continue;
             }
-
-            $quantity = $woQuantity;
 
             $itemType = $item['item_type'] ?? 'SERVICE';
             $mode = $item['mode'] ?? 'EXISTING';
@@ -904,9 +850,9 @@ return $request->validate([
                                 trim($item['product_unit'] ?? 'PCS') ?: 'PCS',
                             'stock_type' =>
                                 $item['product_stock_type'] ?? 'STOCK',
-                            'last_buy_price' =>
+                            'default_purchase_price' =>
                                 (float) ($item['product_purchase_price'] ?? 0),
-                            'selling_price' =>
+                            'default_selling_price' =>
                                 (float) ($item['product_selling_price'] ?? 0),
                             'minimum_stock' =>
                                 (float) ($item['product_minimum_stock'] ?? 0),
@@ -925,9 +871,9 @@ return $request->validate([
                             trim($item['product_unit'] ?? 'PCS') ?: 'PCS',
                         'stock_type' =>
                             $item['product_stock_type'] ?? 'STOCK',
-                        'last_buy_price' =>
+                        'default_purchase_price' =>
                             (float) ($item['product_purchase_price'] ?? 0),
-                        'selling_price' =>
+                        'default_selling_price' =>
                             (float) ($item['product_selling_price'] ?? 0),
                         'minimum_stock' =>
                             (float) ($item['product_minimum_stock'] ?? 0),
@@ -950,8 +896,8 @@ return $request->validate([
                 $itemName = $product->name;
                 $unit = $product->unit ?: 'PCS';
 
-                $unitPrice = (float) $product->selling_price;
-                $unitCost = (float) $product->last_buy_price;
+                $unitPrice = (float) $product->default_selling_price;
+                $unitCost = (float) $product->default_purchase_price;
             }
 
             $discountAmount = (float) (
@@ -964,24 +910,8 @@ return $request->validate([
             );
 
             $totalCost = $quantity * $unitCost;
-            /*
-             * QTY WORK ORDER / PURCHASE
-             *
-             * purchase_quantity  = total barang dari Purchase
-             * wo_quantity        = barang yang dipakai WO
-             * remaining_quantity = Purchase - WO
-             */
 
-            $purchaseQuantity =
-                (int) ($item['purchase_quantity'] ?? 0);
-
-            $remainingQuantity =
-                max(
-                    0,
-                    $purchaseQuantity - $woQuantity
-                );
-
-            $workOrderItem = WorkOrderItem::create([
+            WorkOrderItem::create([
                 'work_order_id' => $workOrder->id,
                 'item_type' => $itemType,
                 'service_id' => $serviceId,
@@ -990,15 +920,6 @@ return $request->validate([
                 'item_name' => $itemName,
                 'unit' => $unit,
                 'quantity' => $quantity,
-
-                'purchase_quantity' =>
-                    $purchaseQuantity,
-
-                'wo_quantity' =>
-                    $woQuantity,
-
-                'remaining_quantity' =>
-                    $remainingQuantity,
                 'unit_price' => $unitPrice,
                 'discount_amount' => $discountAmount,
                 'subtotal' => $lineSubtotal,
@@ -1019,15 +940,12 @@ return $request->validate([
              */
             if (
                 $itemType === 'PRODUCT' &&
-                $productId &&
-                $woQuantity > 0 &&
-                $purchaseQuantity <= 0
+                $productId
             ) {
                 $this->consumeInventory(
                     $product,
-                    $woQuantity,
-                    $workOrder,
-                    $workOrderItem->id
+                    $quantity,
+                    $workOrder
                 );
             }
 
@@ -1039,9 +957,8 @@ return $request->validate([
 
     private function consumeInventory(
         Product $product,
-        int $quantity,
-        WorkOrder $workOrder,
-        ?int $workOrderItemId = null
+        float $quantity,
+        WorkOrder $workOrder
     ): void {
 
         /*
@@ -1052,8 +969,7 @@ return $request->validate([
             ->consumeForWorkOrder(
                 $workOrder,
                 $product->id,
-                $quantity,
-                $workOrderItemId
+                $quantity
             );
     }
 
@@ -1106,21 +1022,4 @@ return $request->validate([
         return $code;
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 

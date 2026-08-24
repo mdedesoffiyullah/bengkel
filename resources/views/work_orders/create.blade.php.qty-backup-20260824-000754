@@ -128,7 +128,7 @@
                 <select id="customer_id"
                         name="customer_id"
                         onchange="setCustomerMode('EXISTING')"
-                        required class="w-full rounded-lg border-gray-300">
+                        class="w-full rounded-lg border-gray-300">
 
                     <option value="">
                         -- Pilih Customer --
@@ -583,14 +583,9 @@ function setCustomerMode(mode)
 
     if (mode === 'NEW') {
         box.classList.remove('hidden');
-
         select.value = '';
-        select.required = false;
-
     } else {
         box.classList.add('hidden');
-
-        select.required = true;
     }
 }
 
@@ -666,7 +661,7 @@ function addItem()
                     </label>
 
                     <select name="items[${index}][service_id]"
-                            id="service-select-${index}" onchange="fillMasterItemData(${index})"
+                            id="service-select-${index}"
                             class="w-full rounded-lg border-gray-300">
 
                         ${serviceOptions()}
@@ -674,7 +669,7 @@ function addItem()
                     </select>
 
                     <select name="items[${index}][product_id]"
-                            id="product-select-${index}" onchange="fillMasterItemData(${index})"
+                            id="product-select-${index}"
                             class="hidden w-full rounded-lg border-gray-300">
 
                         ${productOptions()}
@@ -863,7 +858,7 @@ function addItem()
                         </label>
 
                         <input type="number"
-                               step="1"
+                               step="0.001"
                                min="0"
                                name="items[${index}][product_minimum_stock]"
                                class="w-full rounded-lg border-gray-300">
@@ -876,55 +871,17 @@ function addItem()
 
             <div class="mt-5 grid grid-cols-1 md:grid-cols-4 gap-4">
 
-                <div class="purchase-quantity-box">
-                    <label class="block text-sm font-medium mb-1">
-                        Pembelian Total
-                    </label>
-
-                    <input type="number"
-                           step="1"
-                           min="0"
-                           name="items[${index}][purchase_quantity]"
-                           value=""
-                           class="w-full rounded-lg border-gray-300 purchase-quantity-input">
-
-                    <p class="text-xs text-gray-500 mt-1">
-                        Total barang yang masuk dari Purchase
-                    </p>
-                </div>
-
                 <div>
                     <label class="block text-sm font-medium mb-1">
-                        WO
+                        Qty
                     </label>
 
                     <input type="number"
-                           step="1"
-                           min="0"
-                           name="items[${index}][wo_quantity]"
+                           step="0.001"
+                           min="0.001"
+                           name="items[${index}][quantity]"
                            value="1"
-                           class="w-full rounded-lg border-gray-300 wo-quantity-input">
-
-                    <p class="text-xs text-gray-500 mt-1">
-                        Barang yang dipakai Work Order
-                    </p>
-                </div>
-
-                <div class="remaining-quantity-box">
-                    <label class="block text-sm font-medium mb-1">
-                        Sisa
-                    </label>
-
-                    <input type="number"
-                           step="1"
-                           name="items[${index}][remaining_quantity]"
-                           value="0"
-                           readonly
-                           class="w-full rounded-lg border-gray-300 bg-gray-100 remaining-quantity-input">
-
-                    <p class="text-xs text-gray-500 mt-1">
-                        Pembelian - WO
-                    </p>
+                           class="w-full rounded-lg border-gray-300">
                 </div>
 
                 <div>
@@ -1009,6 +966,7 @@ function getItemPrice(row)
                     'input[name*="[service_default_price]"]'
                 )?.value || 0
             );
+
         }
 
         return parseFloat(
@@ -1019,7 +977,7 @@ function getItemPrice(row)
     }
 
     /*
-     * MASTER JASA
+     * ITEM MASTER
      */
     if (type === 'SERVICE') {
 
@@ -1028,114 +986,39 @@ function getItemPrice(row)
                 'select[name*="[service_id]"]'
             );
 
-        const option =
-            select?.options[select.selectedIndex];
+        const serviceId =
+            parseInt(select?.value || 0);
+
+        const service =
+            services.find(
+                item => Number(item.id) === serviceId
+            );
 
         return parseFloat(
-            option?.dataset.price || 0
+            service?.default_price || 0
         );
     }
 
-    /*
-     * MASTER SPAREPART
-     */
     const select =
         row.querySelector(
             'select[name*="[product_id]"]'
         );
 
-    const option =
-        select?.options[select.selectedIndex];
+    const productId =
+        parseInt(select?.value || 0);
+
+    const product =
+        products.find(
+            item => Number(item.id) === productId
+        );
 
     return parseFloat(
-        option?.dataset.price || 0
+        product?.default_selling_price || 0
     );
 }
-/*
- * NORMALISASI QUANTITY
- *
- * 01   -> 1
- * 001  -> 1
- * 0005 -> 5
- * kosong tetap kosong
- */
-function normalizeQuantityInput(element)
-{
-    if (!element) {
-        return;
-    }
 
-    const value = element.value;
-
-    if (value === '') {
-        return;
-    }
-
-    const normalized = value.replace(/^0+(?=\d)/, '');
-
-    if (normalized !== value) {
-        element.value = normalized;
-    }
-}
-
-function attachQuantityNormalizationListeners()
-{
-    document
-        .querySelectorAll(
-            '.purchase-quantity-input, .wo-quantity-input'
-        )
-        .forEach(element => {
-
-            element.addEventListener(
-                'input',
-                function () {
-
-                    normalizeQuantityInput(this);
-
-                    if (
-                        typeof calculateRemainingQuantities ===
-                        'function'
-                    ) {
-                        calculateRemainingQuantities();
-                    }
-                }
-            );
-
-        });
-}
-function calculateRemainingQuantities()
-{
-    document.querySelectorAll('.item-row').forEach(row => {
-
-        const purchaseInput =
-            row.querySelector('.purchase-quantity-input');
-
-        const woInput =
-            row.querySelector('.wo-quantity-input');
-
-        const remainingInput =
-            row.querySelector('.remaining-quantity-input');
-
-        if (!purchaseInput || !woInput || !remainingInput) {
-            return;
-        }
-
-        const purchase =
-            parseFloat(purchaseInput.value || 0);
-
-        const wo =
-            parseFloat(woInput.value || 0);
-
-        const remaining =
-            Math.max(0, purchase - wo);
-
-        remainingInput.value = Math.trunc(remaining);
-    });
-}
 function calculateWorkOrderTotal()
 {
-    calculateRemainingQuantities();
-
     let subtotal = 0;
     let totalItemDiscount = 0;
 
@@ -1143,7 +1026,7 @@ function calculateWorkOrderTotal()
 
         const quantity =
             parseFloat(
-                row.querySelector('input[name*="[wo_quantity]"]')?.value || 0
+                row.querySelector('input[name*="[quantity]"]')?.value || 0
             );
 
         const discount =
@@ -1246,25 +1129,6 @@ function calculateWorkOrderTotal()
     };
 }
 
-function attachRemainingQuantityListeners()
-{
-    document
-        .querySelectorAll(
-            '.purchase-quantity-input, .wo-quantity-input'
-        )
-        .forEach(element => {
-
-            element.addEventListener(
-                'input',
-                calculateRemainingQuantities
-            );
-
-            element.addEventListener(
-                'change',
-                calculateRemainingQuantities
-            );
-        });
-}
 function attachCalculationListeners()
 {
     document
@@ -1290,10 +1154,7 @@ function serviceOptions()
 
     services.forEach(service => {
         html += `
-            <option
-                value="${service.id}"
-                data-price="${Number(service.default_price || 0)}"
-            >
+            <option value="${service.id}">
                 ${service.code} - ${service.name}
             </option>
         `;
@@ -1308,224 +1169,13 @@ function productOptions()
 
     products.forEach(product => {
         html += `
-            <option
-                value="${product.id}"
-                data-price="${Number(product.selling_price || 0)}"
-            >
+            <option value="${product.id}">
                 ${product.code} - ${product.name}
             </option>
         `;
     });
 
     return html;
-}
-
-function fillMasterItemData(index)
-{
-    const row =
-        document.querySelector(
-            `[data-index="${index}"]`
-        );
-
-    if (!row) {
-        return;
-    }
-
-    const type =
-        row.querySelector(
-            `select[name="items[${index}][item_type]"]`
-        )?.value;
-
-    const mode =
-        row.querySelector(
-            `select[name="items[${index}][mode]"]`
-        )?.value;
-
-    /*
-     * Hanya isi data jika:
-     * - mode EXISTING
-     * - user benar-benar memilih item
-     */
-    if (mode !== 'EXISTING') {
-        return;
-    }
-
-    if (type === 'SERVICE') {
-
-        const select =
-            row.querySelector(
-                `select[name="items[${index}][service_id]"]`
-            );
-
-        const serviceId =
-            select?.value;
-
-        if (!serviceId) {
-            return;
-        }
-
-        const service =
-            services.find(
-                item => Number(item.id) === Number(serviceId)
-            );
-
-        if (!service) {
-            return;
-        }
-
-        const code =
-            row.querySelector(
-                `input[name="items[${index}][service_code]"]`
-            );
-
-        const name =
-            row.querySelector(
-                `input[name="items[${index}][service_name]"]`
-            );
-
-        const price =
-            row.querySelector(
-                `input[name="items[${index}][service_default_price]"]`
-            );
-
-        const description =
-            row.querySelector(
-                `textarea[name="items[${index}][service_description]"]`
-            );
-
-        const duration =
-            row.querySelector(
-                `input[name="items[${index}][service_estimated_duration]"]`
-            );
-
-        if (code) {
-            code.value = service.code ?? '';
-        }
-
-        if (name) {
-            name.value = service.name ?? '';
-        }
-
-        if (price) {
-            price.value = service.default_price ?? 0;
-        }
-
-        if (description) {
-            description.value = service.description ?? '';
-        }
-
-        if (duration) {
-            duration.value = service.estimated_duration ?? 0;
-        }
-
-        calculateWorkOrderTotal();
-
-        return;
-    }
-
-    const select =
-        row.querySelector(
-            `select[name="items[${index}][product_id]"]`
-        );
-
-    const productId =
-        select?.value;
-
-    if (!productId) {
-        return;
-    }
-
-    const product =
-        products.find(
-            item => Number(item.id) === Number(productId)
-        );
-
-    if (!product) {
-        return;
-    }
-
-    const code =
-        row.querySelector(
-            `input[name="items[${index}][product_code]"]`
-        );
-
-    const barcode =
-        row.querySelector(
-            `input[name="items[${index}][product_barcode]"]`
-        );
-
-    const name =
-        row.querySelector(
-            `input[name="items[${index}][product_name]"]`
-        );
-
-    const brand =
-        row.querySelector(
-            `input[name="items[${index}][product_brand]"]`
-        );
-
-    const unit =
-        row.querySelector(
-            `input[name="items[${index}][product_unit]"]`
-        );
-
-    const stockType =
-        row.querySelector(
-            `select[name="items[${index}][product_stock_type]"]`
-        );
-
-    const purchasePrice =
-        row.querySelector(
-            `input[name="items[${index}][product_purchase_price]"]`
-        );
-
-    const sellingPrice =
-        row.querySelector(
-            `input[name="items[${index}][product_selling_price]"]`
-        );
-
-    const minimumStock =
-        row.querySelector(
-            `input[name="items[${index}][product_minimum_stock]"]`
-        );
-
-    if (code) {
-        code.value = product.code ?? '';
-    }
-
-    if (barcode) {
-        barcode.value = product.barcode ?? '';
-    }
-
-    if (name) {
-        name.value = product.name ?? '';
-    }
-
-    if (brand) {
-        brand.value = product.brand ?? '';
-    }
-
-    if (unit) {
-        unit.value = product.unit ?? 'PCS';
-    }
-
-    if (stockType) {
-        stockType.value = product.stock_type ?? 'STOCK';
-    }
-
-    if (purchasePrice) {
-        purchasePrice.value = product.last_buy_price ?? 0;
-    }
-
-    if (sellingPrice) {
-        sellingPrice.value = product.selling_price ?? 0;
-    }
-
-    if (minimumStock) {
-        minimumStock.value = product.minimum_stock ?? 0;
-    }
-
-    calculateWorkOrderTotal();
 }
 
 function changeItemType(index, type)
@@ -1576,23 +1226,9 @@ function changeItemMode(index, mode)
     const productBox =
         document.getElementById(`new-product-${index}`);
 
-    const purchaseBox =
-        row.querySelector('.purchase-quantity-box');
-
-    const remainingBox =
-        row.querySelector('.remaining-quantity-box');
-
     if (mode === 'NEW') {
 
         existing.classList.add('hidden');
-
-        if (purchaseBox) {
-            purchaseBox.classList.remove('hidden');
-        }
-
-        if (remainingBox) {
-            remainingBox.classList.remove('hidden');
-        }
 
         if (type === 'SERVICE') {
             serviceBox.classList.remove('hidden');
@@ -1607,14 +1243,6 @@ function changeItemMode(index, mode)
         existing.classList.remove('hidden');
         serviceBox.classList.add('hidden');
         productBox.classList.add('hidden');
-
-        if (purchaseBox) {
-            purchaseBox.classList.add('hidden');
-        }
-
-        if (remainingBox) {
-            remainingBox.classList.add('hidden');
-        }
     }
 }
 
@@ -1625,30 +1253,11 @@ setCustomerMode(
 addItem();
 
 attachCalculationListeners();
-attachRemainingQuantityListeners();
 calculateWorkOrderTotal();
 
 </script>
 
 @endsection
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

@@ -131,7 +131,7 @@ class StockMovementController extends Controller
                 function () use ($validated) {
 
                     $quantity =
-                        (float) $validated['quantity'];
+                        (int) $validated['quantity'];
 
                     /*
                      * Mapping tipe dari form ke enum database.
@@ -235,7 +235,7 @@ class StockMovementController extends Controller
                             $layer;
 
                         $oldQuantity =
-                            (float) $balance->quantity;
+                            (int) $balance->quantity;
 
                         $oldAverageCost =
                             (float) $balance->average_cost;
@@ -291,7 +291,7 @@ class StockMovementController extends Controller
                         $validated['type'] === 'OUT'
                     ) {
                         $available =
-                            (float) $balance->quantity
+                            (int) $balance->quantity
                             - (
                                 (float)
                                 $balance
@@ -467,7 +467,7 @@ class StockMovementController extends Controller
                          * Kurangi quantity fisik.
                          */
                         $oldQuantity =
-                            (float) $balance->quantity;
+                            (int) $balance->quantity;
 
                         $newQuantity =
                             $oldQuantity
@@ -601,7 +601,7 @@ class StockMovementController extends Controller
                             $layer;
 
                         $oldQuantity =
-                            (float) $balance->quantity;
+                            (int) $balance->quantity;
 
                         $oldAverageCost =
                             (float) $balance->average_cost;
@@ -808,3 +808,4 @@ class StockMovementController extends Controller
             );
     }
 }
+

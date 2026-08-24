@@ -1,0 +1,1028 @@
+﻿<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('work_orders', function (Blueprint $table) {
+            $table->id();
+
+            $table->string('code', 30)->unique();
+
+            $table->foreignId('customer_id')
+                ->constrained('customers')
+                ->restrictOnDelete();
+
+            $table->foreignId('vehicle_id')
+                ->constrained('vehicles')
+                ->restrictOnDelete();
+
+            $table->dateTime('opened_at');
+
+            $table->dateTime('completed_at')->nullable();
+
+            $table->enum('status', [
+                'OPEN',
+                'IN_PROGRESS',
+                'WAITING_PARTS',
+                'COMPLETED',
+                'CANCELLED',
+            ])->default('OPEN');
+
+            $table->text('complaint')->nullable();
+            $table->text('diagnosis')->nullable();
+            $table->text('notes')->nullable();
+
+            $table->timestamps();
+
+            $table->index('status');
+            $table->index('opened_at');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('work_orders');
+    }
+};
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('work_order_additional_charges', function (Blueprint $table) {
+            $table->id();
+
+            $table->foreignId('work_order_id')
+                ->constrained('work_orders')
+                ->cascadeOnDelete();
+
+            $table->string('name');
+            $table->text('description')->nullable();
+
+            $table->decimal('amount', 15, 2)->default(0);
+
+            $table->timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('work_order_additional_charges');
+    }
+};
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('work_order_items', function (Blueprint $table) {
+            $table->id();
+
+            $table->foreignId('work_order_id')
+                ->constrained('work_orders')
+                ->cascadeOnDelete();
+
+            $table->enum('item_type', [
+                'SERVICE',
+                'PRODUCT',
+            ]);
+
+            $table->foreignId('service_id')
+                ->nullable()
+                ->constrained('services')
+                ->restrictOnDelete();
+
+            $table->foreignId('product_id')
+                ->nullable()
+                ->constrained('products')
+                ->restrictOnDelete();
+
+            $table->decimal('quantity', 15, 3)->default(1);
+
+            $table->decimal('unit_price', 15, 2)->default(0);
+
+            $table->decimal('discount', 15, 2)->default(0);
+
+            $table->decimal('subtotal', 15, 2)->default(0);
+
+            $table->text('notes')->nullable();
+
+            $table->timestamps();
+
+            $table->index('item_type');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('work_order_items');
+    }
+};
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('purchases', function (Blueprint $table) {
+            $table->id();
+
+            $table->string('code', 30)->unique();
+
+            $table->foreignId('supplier_id')
+                ->constrained('suppliers')
+                ->restrictOnDelete();
+
+            $table->dateTime('purchased_at');
+
+            $table->enum('status', [
+                'DRAFT',
+                'ORDERED',
+                'RECEIVED',
+                'CANCELLED',
+            ])->default('DRAFT');
+
+            $table->decimal('subtotal', 15, 2)->default(0);
+            $table->decimal('discount', 15, 2)->default(0);
+            $table->decimal('tax', 15, 2)->default(0);
+            $table->decimal('total', 15, 2)->default(0);
+
+            $table->text('notes')->nullable();
+
+            $table->timestamps();
+
+            $table->index('status');
+            $table->index('purchased_at');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('purchases');
+    }
+};
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('purchase_items', function (Blueprint $table) {
+            $table->id();
+
+            $table->foreignId('purchase_id')
+                ->constrained('purchases')
+                ->cascadeOnDelete();
+
+            $table->foreignId('product_id')
+                ->constrained('products')
+                ->restrictOnDelete();
+
+            $table->decimal('quantity', 15, 3);
+
+            $table->decimal('unit_price', 15, 2);
+
+            $table->decimal('discount', 15, 2)->default(0);
+
+            $table->decimal('subtotal', 15, 2)->default(0);
+
+            $table->timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('purchase_items');
+    }
+};
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('inventory_balances', function (Blueprint $table) {
+            $table->id();
+
+            $table->foreignId('product_id')
+                ->constrained('products')
+                ->restrictOnDelete();
+
+            $table->decimal('quantity', 15, 3)->default(0);
+
+            $table->decimal('reserved_quantity', 15, 3)->default(0);
+
+            $table->decimal('available_quantity', 15, 3)->default(0);
+
+            $table->decimal('average_cost', 15, 2)->default(0);
+
+            $table->timestamps();
+
+            $table->unique('product_id');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('inventory_balances');
+    }
+};
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('inventory_layers', function (Blueprint $table) {
+            $table->id();
+
+            $table->foreignId('product_id')
+                ->constrained('products')
+                ->restrictOnDelete();
+
+            $table->decimal('quantity', 15, 3);
+
+            $table->decimal('remaining_quantity', 15, 3);
+
+            $table->decimal('unit_cost', 15, 2);
+
+            $table->dateTime('received_at');
+
+            $table->timestamps();
+
+            $table->index('received_at');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('inventory_layers');
+    }
+};
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('stock_allocations', function (Blueprint $table) {
+            $table->id();
+
+            $table->foreignId('product_id')
+                ->constrained('products')
+                ->restrictOnDelete();
+
+            $table->foreignId('work_order_id')
+                ->nullable()
+                ->constrained('work_orders')
+                ->restrictOnDelete();
+
+            $table->decimal('quantity', 15, 3);
+
+            $table->enum('status', [
+                'RESERVED',
+                'RELEASED',
+                'CONSUMED',
+            ])->default('RESERVED');
+
+            $table->timestamps();
+
+            $table->index('status');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('stock_allocations');
+    }
+};
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('stock_opnames', function (Blueprint $table) {
+            $table->id();
+
+            $table->string('code', 30)->unique();
+
+            $table->date('opname_date');
+
+            $table->enum('status', [
+                'DRAFT',
+                'COMPLETED',
+                'CANCELLED',
+            ])->default('DRAFT');
+
+            $table->text('notes')->nullable();
+
+            $table->timestamps();
+
+            $table->index('opname_date');
+            $table->index('status');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('stock_opnames');
+    }
+};
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('stock_opname_items', function (Blueprint $table) {
+            $table->id();
+
+            $table->foreignId('stock_opname_id')
+                ->constrained('stock_opnames')
+                ->cascadeOnDelete();
+
+            $table->foreignId('product_id')
+                ->constrained('products')
+                ->restrictOnDelete();
+
+            $table->decimal('system_quantity', 15, 3);
+
+            $table->decimal('physical_quantity', 15, 3);
+
+            $table->decimal('difference_quantity', 15, 3);
+
+            $table->text('notes')->nullable();
+
+            $table->timestamps();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('stock_opname_items');
+    }
+};
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('work_orders', function (Blueprint $table) {
+            $table->enum('type', [
+                'REGULAR',
+                'WARRANTY',
+            ])
+            ->default('REGULAR')
+            ->after('status');
+
+            $table->dateTime('started_at')
+                ->nullable()
+                ->after('type');
+
+            $table->dateTime('cancelled_at')
+                ->nullable()
+                ->after('completed_at');
+
+            $table->decimal('subtotal', 15, 2)
+                ->default(0)
+                ->after('notes');
+
+            $table->decimal('discount', 15, 2)
+                ->default(0)
+                ->after('subtotal');
+
+            $table->decimal('grand_total', 15, 2)
+                ->default(0)
+                ->after('discount');
+
+            $table->text('cancellation_reason')
+                ->nullable()
+                ->after('grand_total');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('work_orders', function (Blueprint $table) {
+            $table->dropColumn([
+                'type',
+                'started_at',
+                'cancelled_at',
+                'subtotal',
+                'discount',
+                'grand_total',
+                'cancellation_reason',
+            ]);
+        });
+    }
+};
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('work_order_items', function (Blueprint $table) {
+            $table->string('item_code', 50)
+                ->nullable()
+                ->after('product_id');
+
+            $table->string('item_name')
+                ->nullable()
+                ->after('item_code');
+
+            $table->string('unit', 20)
+                ->default('PCS')
+                ->after('item_name');
+
+            $table->decimal('discount_amount', 15, 2)
+                ->default(0)
+                ->after('unit_price');
+
+            $table->decimal('unit_cost', 15, 2)
+                ->default(0)
+                ->after('discount_amount');
+
+            $table->decimal('total_cost', 15, 2)
+                ->default(0)
+                ->after('subtotal');
+
+            $table->string('status', 30)
+                ->default('PENDING')
+                ->after('total_cost');
+        });
+
+        Schema::table('work_order_items', function (Blueprint $table) {
+            $table->dropColumn('discount');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('work_order_items', function (Blueprint $table) {
+            $table->decimal('discount', 15, 2)
+                ->default(0)
+                ->after('unit_price');
+
+            $table->dropColumn([
+                'item_code',
+                'item_name',
+                'unit',
+                'discount_amount',
+                'unit_cost',
+                'total_cost',
+                'status',
+            ]);
+        });
+    }
+};
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('payments', function (Blueprint $table) {
+            $table->dropForeign(['invoice_id']);
+            $table->dropColumn('invoice_id');
+
+            $table->foreignId('work_order_id')
+                ->after('code')
+                ->constrained('work_orders')
+                ->cascadeOnDelete();
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('payments', function (Blueprint $table) {
+            $table->dropForeign(['work_order_id']);
+            $table->dropColumn('work_order_id');
+
+            $table->unsignedBigInteger('invoice_id')
+                ->nullable()
+                ->after('code');
+
+            $table->foreign('invoice_id')
+                ->references('id')
+                ->on('invoices')
+                ->nullOnDelete();
+        });
+    }
+};
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        if (Schema::hasColumn('work_orders', 'vehicle_id')) {
+            Schema::table('work_orders', function (Blueprint $table) {
+                $table->dropForeign(['vehicle_id']);
+                $table->dropColumn('vehicle_id');
+            });
+        }
+    }
+
+    public function down(): void
+    {
+        Schema::table('work_orders', function (Blueprint $table) {
+            $table->foreignId('vehicle_id')
+                ->nullable()
+                ->constrained('vehicles')
+                ->restrictOnDelete();
+        });
+    }
+};
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('products', function (Blueprint $table) {
+            $table->renameColumn(
+                'default_purchase_price',
+                'last_buy_price'
+            );
+
+            $table->renameColumn(
+                'default_selling_price',
+                'selling_price'
+            );
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('products', function (Blueprint $table) {
+            $table->renameColumn(
+                'last_buy_price',
+                'default_purchase_price'
+            );
+
+            $table->renameColumn(
+                'selling_price',
+                'default_selling_price'
+            );
+        });
+    }
+};
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('purchases', function (Blueprint $table) {
+
+            $table->foreignId('work_order_id')
+                ->nullable()
+                ->after('supplier_id')
+                ->constrained('work_orders')
+                ->nullOnDelete();
+
+            $table->enum('purchase_type', [
+                'GENERAL',
+                'WO',
+            ])
+                ->default('GENERAL')
+                ->after('work_order_id');
+
+            $table->date('purchase_date')
+                ->nullable()
+                ->after('purchase_type');
+
+            $table->dateTime('received_at')
+                ->nullable()
+                ->after('purchase_date');
+
+            $table->decimal('grand_total', 15, 2)
+                ->default(0)
+                ->after('discount');
+
+            $table->foreignId('created_by')
+                ->nullable()
+                ->after('notes')
+                ->constrained('users')
+                ->nullOnDelete();
+        });
+
+        Schema::table('purchases', function (Blueprint $table) {
+            $table->dropColumn([
+                'purchased_at',
+                'tax',
+                'total',
+            ]);
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('purchases', function (Blueprint $table) {
+            $table->dateTime('purchased_at')
+                ->nullable();
+
+            $table->decimal('tax', 15, 2)
+                ->default(0);
+
+            $table->decimal('total', 15, 2)
+                ->default(0);
+        });
+
+        Schema::table('purchases', function (Blueprint $table) {
+            $table->dropForeign(['work_order_id']);
+            $table->dropForeign(['created_by']);
+
+            $table->dropColumn([
+                'work_order_id',
+                'purchase_type',
+                'purchase_date',
+                'received_at',
+                'grand_total',
+                'created_by',
+            ]);
+        });
+    }
+};
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('purchase_items', function (Blueprint $table) {
+
+            $table->renameColumn(
+                'unit_price',
+                'unit_cost'
+            );
+
+            $table->decimal('selling_price', 15, 2)
+                ->default(0)
+                ->after('unit_cost');
+
+            $table->decimal('discount_amount', 15, 2)
+                ->default(0)
+                ->after('selling_price');
+
+            $table->decimal('received_quantity', 15, 3)
+                ->default(0)
+                ->after('subtotal');
+
+            $table->text('notes')
+                ->nullable()
+                ->after('received_quantity');
+        });
+
+        Schema::table('purchase_items', function (Blueprint $table) {
+            $table->dropColumn('discount');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('purchase_items', function (Blueprint $table) {
+            $table->renameColumn(
+                'unit_cost',
+                'unit_price'
+            );
+
+            $table->dropColumn([
+                'selling_price',
+                'discount_amount',
+                'received_quantity',
+                'notes',
+            ]);
+        });
+
+        Schema::table('purchase_items', function (Blueprint $table) {
+            $table->decimal('discount', 15, 2)
+                ->default(0)
+                ->after('unit_price');
+        });
+    }
+};
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('work_order_items', function (Blueprint $table) {
+
+            $table->foreignId('category_id')
+                ->nullable()
+                ->after('product_id')
+                ->constrained('product_categories')
+                ->restrictOnDelete();
+
+            $table->foreignId('supplier_id')
+                ->nullable()
+                ->after('category_id')
+                ->constrained('suppliers')
+                ->restrictOnDelete();
+
+            $table->string('barcode', 100)
+                ->nullable()
+                ->after('item_name');
+
+            $table->string('brand', 100)
+                ->nullable()
+                ->after('barcode');
+
+            $table->enum('stock_type', [
+                'STOCK',
+                'NON_STOCK',
+            ])
+                ->default('STOCK')
+                ->after('unit');
+
+            $table->decimal('minimum_stock', 15, 3)
+                ->default(0)
+                ->after('quantity');
+
+            $table->decimal('selling_price', 15, 2)
+                ->default(0)
+                ->after('unit_cost');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('work_order_items', function (Blueprint $table) {
+
+            $table->dropForeign(['category_id']);
+            $table->dropForeign(['supplier_id']);
+
+            $table->dropColumn([
+                'category_id',
+                'supplier_id',
+                'barcode',
+                'brand',
+                'stock_type',
+                'minimum_stock',
+                'selling_price',
+            ]);
+        });
+    }
+};
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('inventory_layers', function (Blueprint $table) {
+
+            $table->foreignId('purchase_item_id')
+                ->nullable()
+                ->after('product_id')
+                ->constrained('purchase_items')
+                ->nullOnDelete();
+
+            $table->foreignId('stock_movement_id')
+                ->nullable()
+                ->after('purchase_item_id')
+                ->constrained('stock_movements')
+                ->nullOnDelete();
+
+            $table->decimal('total_cost', 15, 2)
+                ->default(0)
+                ->after('unit_cost');
+
+            $table->enum('status', [
+                'ACTIVE',
+                'DEPLETED',
+                'CANCELLED',
+            ])
+                ->default('ACTIVE')
+                ->after('received_at');
+
+            $table->index('purchase_item_id');
+            $table->index('stock_movement_id');
+            $table->index('status');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('inventory_layers', function (Blueprint $table) {
+
+            $table->dropForeign([
+                'purchase_item_id',
+            ]);
+
+            $table->dropForeign([
+                'stock_movement_id',
+            ]);
+
+            $table->dropIndex([
+                'inventory_layers_purchase_item_id_index',
+            ]);
+
+            $table->dropIndex([
+                'inventory_layers_stock_movement_id_index',
+            ]);
+
+            $table->dropIndex([
+                'inventory_layers_status_index',
+            ]);
+
+            $table->dropColumn([
+                'purchase_item_id',
+                'stock_movement_id',
+                'total_cost',
+                'status',
+            ]);
+        });
+    }
+};
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::table('purchase_items', function (Blueprint $table) {
+            $table->foreignId('work_order_item_id')
+                ->nullable()
+                ->after('purchase_id')
+                ->constrained('work_order_items')
+                ->nullOnDelete();
+
+            $table->index('work_order_item_id');
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::table('purchase_items', function (Blueprint $table) {
+            $table->dropForeign([
+                'work_order_item_id',
+            ]);
+
+            $table->dropIndex([
+                'purchase_items_work_order_item_id_index',
+            ]);
+
+            $table->dropColumn('work_order_item_id');
+        });
+    }
+};
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        // Changes for inventory_layers are already handled by
+        // 2026_08_23_063822_align_inventory_layers_with_inventory_workflow.php.
+    }
+
+    public function down(): void
+    {
+        // Intentionally left empty.
+    }
+};
+<?php
+
+use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
+use Illuminate\Support\Facades\Schema;
+
+return new class extends Migration
+{
+    public function up(): void
+    {
+        Schema::create('inventory_layer_consumptions', function (Blueprint $table) {
+            $table->id();
+
+            $table->foreignId('inventory_layer_id')
+                ->constrained('inventory_layers')
+                ->restrictOnDelete();
+
+            $table->foreignId('stock_movement_id')
+                ->constrained('stock_movements')
+                ->restrictOnDelete();
+
+            $table->foreignId('work_order_id')
+                ->nullable()
+                ->constrained('work_orders')
+                ->nullOnDelete();
+
+            $table->foreignId('work_order_item_id')
+                ->nullable()
+                ->constrained('work_order_items')
+                ->nullOnDelete();
+
+            $table->decimal('quantity', 15, 3);
+            $table->decimal('unit_cost', 15, 2);
+            $table->decimal('total_cost', 15, 2);
+
+            $table->timestamps();
+
+            $table->index(
+                ['inventory_layer_id', 'created_at'],
+                'ilc_layer_created_idx'
+            );
+
+            $table->index(
+                ['work_order_id', 'work_order_item_id'],
+                'ilc_wo_item_idx'
+            );
+        });
+    }
+
+    public function down(): void
+    {
+        Schema::dropIfExists('inventory_layer_consumptions');
+    }
+};

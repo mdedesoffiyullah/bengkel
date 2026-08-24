@@ -18,9 +18,9 @@ class InventoryBalance extends Model
     protected function casts(): array
     {
         return [
-            'quantity' => 'decimal:3',
-            'reserved_quantity' => 'decimal:3',
-            'available_quantity' => 'decimal:3',
+            'quantity' => 'integer',
+            'reserved_quantity' => 'integer',
+            'available_quantity' => 'integer',
             'average_cost' => 'decimal:2',
         ];
     }
@@ -33,3 +33,4 @@ class InventoryBalance extends Model
         return $this->belongsTo(Product::class);
     }
 }
+

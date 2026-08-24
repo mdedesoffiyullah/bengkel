@@ -22,8 +22,8 @@ class InventoryLayer extends Model
     protected function casts(): array
     {
         return [
-            'quantity' => 'decimal:3',
-            'remaining_quantity' => 'decimal:3',
+            'quantity' => 'integer',
+            'remaining_quantity' => 'integer',
             'unit_cost' => 'decimal:2',
             'total_cost' => 'decimal:2',
             'received_at' => 'datetime',

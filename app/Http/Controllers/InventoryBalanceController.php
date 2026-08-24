@@ -68,7 +68,7 @@ class InventoryBalanceController extends Controller
                     ->where('is_active', true),
             ],
 
-            'quantity' => 'required|numeric|min:0',
+            'quantity' => 'required|integer|min:0',
 
             'average_cost' => 'required|numeric|min:0',
 
@@ -91,7 +91,7 @@ class InventoryBalanceController extends Controller
          * Saldo awal hanya boleh dibuat jika
          * balance masih kosong.
          */
-        if ((float) $balance->quantity > 0) {
+        if ((int) $balance->quantity > 0) {
             return back()
                 ->withErrors([
                     'product_id' =>
@@ -101,7 +101,7 @@ class InventoryBalanceController extends Controller
         }
 
         $quantity =
-            (float) $validated['quantity'];
+            (int) $validated['quantity'];
 
         $averageCost =
             (float) $validated['average_cost'];
@@ -185,7 +185,7 @@ class InventoryBalanceController extends Controller
     public function destroy(
         InventoryBalance $inventoryBalance
     ) {
-        if ((float) $inventoryBalance->quantity > 0) {
+        if ((int) $inventoryBalance->quantity > 0) {
             return redirect()
                 ->route(
                     'inventory-balances.show',
@@ -207,3 +207,6 @@ class InventoryBalanceController extends Controller
             );
     }
 }
+
+
+

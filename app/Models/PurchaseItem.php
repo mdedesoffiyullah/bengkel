@@ -23,12 +23,12 @@ class PurchaseItem extends Model
     protected function casts(): array
     {
         return [
-            'quantity' => 'decimal:3',
+            'quantity' => 'integer',
             'unit_cost' => 'decimal:2',
             'selling_price' => 'decimal:2',
             'discount_amount' => 'decimal:2',
             'subtotal' => 'decimal:2',
-            'received_quantity' => 'decimal:3',
+            'received_quantity' => 'integer',
         ];
     }
 
@@ -59,3 +59,4 @@ class PurchaseItem extends Model
         );
     }
 }
+

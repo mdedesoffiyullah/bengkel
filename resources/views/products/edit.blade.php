@@ -1,4 +1,4 @@
-@extends('layouts.app')
+﻿@extends('layouts.app')
 
 @section('content')
 
@@ -162,8 +162,8 @@
 
                 <input
                     type="number"
-                    name="default_purchase_price"
-                    value="{{ old('default_purchase_price', $product->default_purchase_price) }}"
+                    name="last_buy_price"
+                    value="{{ old('last_buy_price', $product->last_buy_price) }}"
                     required
                     min="0"
                     step="0.01"
@@ -179,8 +179,8 @@
 
                 <input
                     type="number"
-                    name="default_selling_price"
-                    value="{{ old('default_selling_price', $product->default_selling_price) }}"
+                    name="selling_price"
+                    value="{{ old('selling_price', $product->selling_price) }}"
                     required
                     min="0"
                     step="0.01"

@@ -126,6 +126,11 @@ Route::resource(
     StockMovementController::class
 );
 
+Route::post(
+    'stock-opnames/{stockOpname}/items',
+    [StockOpnameController::class, 'addItem']
+)->name('stock-opnames.items.store');
+
 Route::resource(
     'stock-opnames',
     StockOpnameController::class
@@ -194,6 +199,7 @@ Route::resource(
 );
 Route::patch('/work-orders/{workOrder}/final', [App\Http\Controllers\WorkOrderController::class, 'final'])
     ->name('work-orders.final');
+
 
 
 

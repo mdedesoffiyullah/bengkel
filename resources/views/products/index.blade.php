@@ -144,7 +144,7 @@
                             </td>
 
                             <td class="px-6 py-4 text-right font-medium">
-                                Rp {{ number_format($product->default_selling_price, 0, ',', '.') }}
+                                Rp {{ number_format($product->selling_price, 0, ',', '.') }}
                             </td>
 
                             <td class="px-6 py-4 text-center">

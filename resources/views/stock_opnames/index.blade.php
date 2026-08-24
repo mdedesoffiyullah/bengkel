@@ -191,7 +191,7 @@
                                 @endphp
 
                                 <span class="{{ $difference < 0 ? 'text-red-600' : ($difference > 0 ? 'text-green-600' : 'text-gray-600') }}">
-                                    {{ number_format($difference, 3, ',', '.') }}
+                                    {{ number_format($difference, 0, ',', '.') }}
                                 </span>
 
                             </td>

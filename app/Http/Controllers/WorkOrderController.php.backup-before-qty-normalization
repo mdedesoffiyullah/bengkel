@@ -61,7 +61,7 @@ class WorkOrderController extends Controller
             $workOrder = WorkOrder::create([
                 'code' => $validated['code'],
                 'status' => $validated['status'] ?? 'OPEN',
-                'customer_id' => $customer?->id,
+                'customer_id' => $customer->id,
                 'type' => $validated['type'] ?? 'REGULAR',
                 'opened_at' => $validated['opened_at'] ?? now(),
                 'complaint' => $validated['complaint'] ?? null,
@@ -482,41 +482,7 @@ class WorkOrderController extends Controller
         ?WorkOrder $workOrder = null
     ): array {
 
-        $items = $request->input('items', []);
-
-        foreach ($items as $index => $item) {
-
-            foreach ([
-                'purchase_quantity',
-                'wo_quantity',
-                'remaining_quantity',
-            ] as $quantityField) {
-
-                if (
-                    array_key_exists($quantityField, $item)
-                ) {
-
-                    $value = trim(
-                        (string) $item[$quantityField]
-                    );
-
-                    if ($value === '') {
-
-                        $items[$index][$quantityField] = null;
-
-                    } else {
-
-                        $items[$index][$quantityField] =
-                            (int) $value;
-                    }
-                }
-            }
-        }
-
-        $request->merge([
-            'items' => $items,
-        ]);
-return $request->validate([
+        return $request->validate([
             'code' => [
                 'required',
                 'string',
@@ -647,7 +613,7 @@ return $request->validate([
         ]);
     }
 
-    private function resolveCustomer(array $validated): ?Customer
+    private function resolveCustomer(array $validated): Customer
     {
         if (($validated['customer_mode'] ?? 'EXISTING') === 'EXISTING') {
 
@@ -676,14 +642,11 @@ return $request->validate([
             $validated['customer_name'] ?? ''
         );
 
-        /*
-         * CUSTOMER OPTIONAL
-         *
-         * Work Order boleh dibuat tanpa customer.
-         * Customer dapat ditambahkan kemudian melalui Edit WO.
-         */
         if ($name === '') {
-            return null;
+            abort(
+                422,
+                'Nama customer wajib diisi.'
+            );
         }
 
         $code = trim(
@@ -1106,8 +1069,6 @@ return $request->validate([
         return $code;
     }
 }
-
-
 
 
 

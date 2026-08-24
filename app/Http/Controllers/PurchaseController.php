@@ -321,19 +321,24 @@ class PurchaseController extends Controller
 
                 foreach ($purchase->items as $item) {
 
-                    $ordered =
-                        (float) $item->quantity;
-
+                    /*
+                     * received_quantity = jumlah barang yang benar-benar
+                     * diterima dari supplier dan masuk inventory.
+                     *
+                     * JANGAN memakai:
+                     *
+                     *     quantity - received_quantity
+                     *
+                     * karena itu menghasilkan 0 ketika seluruh barang
+                     * sudah diterima.
+                     */
                     $received =
-                        (float) $item->received_quantity;
+                        (int) $item->received_quantity;
 
-                    $remaining =
-                        $ordered - $received;
-
-                    if ($remaining > 0) {
+                    if ($received > 0) {
                         $fifo->receivePurchaseItem(
                             $item,
-                            $remaining,
+                            $received,
                             $validated['received_at'] ?? now()
                         );
                     }
@@ -401,4 +406,5 @@ class PurchaseController extends Controller
             );
     }
 }
+
 

@@ -128,7 +128,7 @@
                 <select id="customer_id"
                         name="customer_id"
                         onchange="setCustomerMode('EXISTING')"
-                        required class="w-full rounded-lg border-gray-300">
+                        class="w-full rounded-lg border-gray-300">
 
                     <option value="">
                         -- Pilih Customer --
@@ -583,14 +583,9 @@ function setCustomerMode(mode)
 
     if (mode === 'NEW') {
         box.classList.remove('hidden');
-
         select.value = '';
-        select.required = false;
-
     } else {
         box.classList.add('hidden');
-
-        select.required = true;
     }
 }
 
@@ -863,7 +858,7 @@ function addItem()
                         </label>
 
                         <input type="number"
-                               step="1"
+                               step="0.001"
                                min="0"
                                name="items[${index}][product_minimum_stock]"
                                class="w-full rounded-lg border-gray-300">
@@ -882,10 +877,10 @@ function addItem()
                     </label>
 
                     <input type="number"
-                           step="1"
+                           step="0.001"
                            min="0"
                            name="items[${index}][purchase_quantity]"
-                           value=""
+                           value="0"
                            class="w-full rounded-lg border-gray-300 purchase-quantity-input">
 
                     <p class="text-xs text-gray-500 mt-1">
@@ -899,7 +894,7 @@ function addItem()
                     </label>
 
                     <input type="number"
-                           step="1"
+                           step="0.001"
                            min="0"
                            name="items[${index}][wo_quantity]"
                            value="1"
@@ -916,7 +911,7 @@ function addItem()
                     </label>
 
                     <input type="number"
-                           step="1"
+                           step="0.001"
                            name="items[${index}][remaining_quantity]"
                            value="0"
                            readonly
@@ -992,13 +987,19 @@ function formatRupiah(value)
 function getItemPrice(row)
 {
     const type =
-        row.querySelector('select[name*="[item_type]"]')?.value;
+        row.querySelector(
+            'select[name*="[item_type]"]'
+        )?.value;
 
     const mode =
-        row.querySelector('select[name*="[mode]"]')?.value;
+        row.querySelector(
+            'select[name*="[mode]"]'
+        )?.value;
 
     /*
+     * ====================================================
      * ITEM BARU
+     * ====================================================
      */
     if (mode === 'NEW') {
 
@@ -1019,7 +1020,9 @@ function getItemPrice(row)
     }
 
     /*
+     * ====================================================
      * MASTER JASA
+     * ====================================================
      */
     if (type === 'SERVICE') {
 
@@ -1028,81 +1031,68 @@ function getItemPrice(row)
                 'select[name*="[service_id]"]'
             );
 
-        const option =
-            select?.options[select.selectedIndex];
+        if (!select || !select.value) {
+            return 0;
+        }
+
+        const selectedOption =
+            select.options[select.selectedIndex];
+
+        const optionPrice =
+            parseFloat(
+                selectedOption?.dataset?.price || 0
+            );
+
+        if (optionPrice > 0) {
+            return optionPrice;
+        }
+
+        const service =
+            services.find(
+                item => Number(item.id) === Number(select.value)
+            );
 
         return parseFloat(
-            option?.dataset.price || 0
+            service?.default_price || 0
         );
     }
 
     /*
+     * ====================================================
      * MASTER SPAREPART
+     * ====================================================
      */
     const select =
         row.querySelector(
             'select[name*="[product_id]"]'
         );
 
-    const option =
-        select?.options[select.selectedIndex];
+    if (!select || !select.value) {
+        return 0;
+    }
+
+    const selectedOption =
+        select.options[select.selectedIndex];
+
+    const optionPrice =
+        parseFloat(
+            selectedOption?.dataset?.price || 0
+        );
+
+    if (optionPrice > 0) {
+        return optionPrice;
+    }
+
+    const product =
+        products.find(
+            item => Number(item.id) === Number(select.value)
+        );
 
     return parseFloat(
-        option?.dataset.price || 0
+        product?.default_selling_price || 0
     );
 }
-/*
- * NORMALISASI QUANTITY
- *
- * 01   -> 1
- * 001  -> 1
- * 0005 -> 5
- * kosong tetap kosong
- */
-function normalizeQuantityInput(element)
-{
-    if (!element) {
-        return;
-    }
 
-    const value = element.value;
-
-    if (value === '') {
-        return;
-    }
-
-    const normalized = value.replace(/^0+(?=\d)/, '');
-
-    if (normalized !== value) {
-        element.value = normalized;
-    }
-}
-
-function attachQuantityNormalizationListeners()
-{
-    document
-        .querySelectorAll(
-            '.purchase-quantity-input, .wo-quantity-input'
-        )
-        .forEach(element => {
-
-            element.addEventListener(
-                'input',
-                function () {
-
-                    normalizeQuantityInput(this);
-
-                    if (
-                        typeof calculateRemainingQuantities ===
-                        'function'
-                    ) {
-                        calculateRemainingQuantities();
-                    }
-                }
-            );
-
-        });
-}
 function calculateRemainingQuantities()
 {
     document.querySelectorAll('.item-row').forEach(row => {
@@ -1129,7 +1119,8 @@ function calculateRemainingQuantities()
         const remaining =
             Math.max(0, purchase - wo);
 
-        remainingInput.value = Math.trunc(remaining);
+        remainingInput.value =
+            remaining.toFixed(3);
     });
 }
 function calculateWorkOrderTotal()
@@ -1310,7 +1301,7 @@ function productOptions()
         html += `
             <option
                 value="${product.id}"
-                data-price="${Number(product.selling_price || 0)}"
+                data-price="${Number(product.default_selling_price || 0)}"
             >
                 ${product.code} - ${product.name}
             </option>
@@ -1341,32 +1332,27 @@ function fillMasterItemData(index)
             `select[name="items[${index}][mode]"]`
         )?.value;
 
-    /*
-     * Hanya isi data jika:
-     * - mode EXISTING
-     * - user benar-benar memilih item
-     */
     if (mode !== 'EXISTING') {
         return;
     }
 
+    /*
+     * ====================================================
+     * JASA MASTER
+     * ====================================================
+     */
     if (type === 'SERVICE') {
 
-        const select =
-            row.querySelector(
-                `select[name="items[${index}][service_id]"]`
-            );
-
         const serviceId =
-            select?.value;
-
-        if (!serviceId) {
-            return;
-        }
+            parseInt(
+                row.querySelector(
+                    `select[name="items[${index}][service_id]"]`
+                )?.value || 0
+            );
 
         const service =
             services.find(
-                item => Number(item.id) === Number(serviceId)
+                item => Number(item.id) === serviceId
             );
 
         if (!service) {
@@ -1423,21 +1409,22 @@ function fillMasterItemData(index)
         return;
     }
 
-    const select =
-        row.querySelector(
-            `select[name="items[${index}][product_id]"]`
-        );
+    /*
+     * ====================================================
+     * SPAREPART MASTER
+     * ====================================================
+     */
 
     const productId =
-        select?.value;
-
-    if (!productId) {
-        return;
-    }
+        parseInt(
+            row.querySelector(
+                `select[name="items[${index}][product_id]"]`
+            )?.value || 0
+        );
 
     const product =
         products.find(
-            item => Number(item.id) === Number(productId)
+            item => Number(item.id) === productId
         );
 
     if (!product) {
@@ -1514,20 +1501,22 @@ function fillMasterItemData(index)
     }
 
     if (purchasePrice) {
-        purchasePrice.value = product.last_buy_price ?? 0;
+        purchasePrice.value =
+            product.default_purchase_price ?? 0;
     }
 
     if (sellingPrice) {
-        sellingPrice.value = product.selling_price ?? 0;
+        sellingPrice.value =
+            product.default_selling_price ?? 0;
     }
 
     if (minimumStock) {
-        minimumStock.value = product.minimum_stock ?? 0;
+        minimumStock.value =
+            product.minimum_stock ?? 0;
     }
 
     calculateWorkOrderTotal();
 }
-
 function changeItemType(index, type)
 {
     const serviceSelect =
@@ -1631,20 +1620,6 @@ calculateWorkOrderTotal();
 </script>
 
 @endsection
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 
 

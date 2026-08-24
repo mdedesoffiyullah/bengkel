@@ -1,4 +1,4 @@
-@extends('layouts.app')
+﻿@extends('layouts.app')
 
 @section('content')
 <div class="max-w-5xl mx-auto space-y-6">
@@ -113,14 +113,14 @@
             <div>
                 <p class="text-xs font-medium text-gray-500 uppercase">Harga Beli Default</p>
                 <p class="mt-1 text-sm text-gray-900">
-                    Rp {{ number_format($product->default_purchase_price, 2, ',', '.') }}
+                    Rp {{ number_format($product->last_buy_price, 2, ',', '.') }}
                 </p>
             </div>
 
             <div>
                 <p class="text-xs font-medium text-gray-500 uppercase">Harga Jual Default</p>
                 <p class="mt-1 text-sm text-gray-900">
-                    Rp {{ number_format($product->default_selling_price, 2, ',', '.') }}
+                    Rp {{ number_format($product->selling_price, 2, ',', '.') }}
                 </p>
             </div>
 
@@ -137,3 +137,5 @@
 
 </div>
 @endsection
+
+

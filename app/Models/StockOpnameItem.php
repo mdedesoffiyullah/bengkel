@@ -21,27 +21,22 @@ class StockOpnameItem extends Model
     protected function casts(): array
     {
         return [
-            'system_quantity' => 'decimal:3',
-            'physical_quantity' => 'decimal:3',
-            'difference_quantity' => 'decimal:3',
+            'system_quantity' => 'integer',
+            'physical_quantity' => 'integer',
+            'difference_quantity' => 'integer',
             'unit_cost' => 'decimal:2',
             'difference_value' => 'decimal:2',
         ];
     }
 
-    /**
-     * Stock opname induk.
-     */
     public function stockOpname(): BelongsTo
     {
         return $this->belongsTo(StockOpname::class);
     }
 
-    /**
-     * Produk yang dihitung.
-     */
     public function product(): BelongsTo
     {
         return $this->belongsTo(Product::class);
     }
 }
+

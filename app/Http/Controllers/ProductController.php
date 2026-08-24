@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Product;
 use App\Models\ProductCategory;
+use App\Models\InventoryBalance;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
 
@@ -43,10 +44,10 @@ class ProductController extends Controller
                 Rule::in(['STOCK', 'NON_STOCK']),
             ],
 
-            'default_purchase_price' =>
+            'last_buy_price' =>
                 'required|numeric|min:0',
 
-            'default_selling_price' =>
+            'selling_price' =>
                 'required|numeric|min:0',
 
             'minimum_stock' =>
@@ -61,7 +62,7 @@ class ProductController extends Controller
             $validated['category_name'] ?? null
         );
 
-        Product::create([
+        $product = Product::create([
             'code' => $validated['code'],
             'category_id' => $category->id,
             'barcode' => $validated['barcode'] ?? null,
@@ -69,15 +70,28 @@ class ProductController extends Controller
             'brand' => $validated['brand'] ?? null,
             'unit' => $validated['unit'],
             'stock_type' => $validated['stock_type'],
-            'default_purchase_price' =>
-                $validated['default_purchase_price'],
-            'default_selling_price' =>
-                $validated['default_selling_price'],
+            'last_buy_price' =>
+                $validated['last_buy_price'],
+            'selling_price' =>
+                $validated['selling_price'],
             'minimum_stock' =>
                 $validated['minimum_stock'],
             'is_active' => $request->boolean('is_active'),
             'notes' => $validated['notes'] ?? null,
         ]);
+
+        InventoryBalance::firstOrCreate(
+            [
+                'product_id' => $product->id,
+            ],
+            [
+                'quantity' => 0,
+                'reserved_quantity' => 0,
+                'available_quantity' => 0,
+                'average_cost' =>
+                    $validated['last_buy_price'],
+            ]
+        );
 
         return redirect()
             ->route('products.index')
@@ -147,10 +161,10 @@ class ProductController extends Controller
                 ]),
             ],
 
-            'default_purchase_price' =>
+            'last_buy_price' =>
                 'required|numeric|min:0',
 
-            'default_selling_price' =>
+            'selling_price' =>
                 'required|numeric|min:0',
 
             'minimum_stock' =>
@@ -173,10 +187,10 @@ class ProductController extends Controller
             'brand' => $validated['brand'] ?? null,
             'unit' => $validated['unit'],
             'stock_type' => $validated['stock_type'],
-            'default_purchase_price' =>
-                $validated['default_purchase_price'],
-            'default_selling_price' =>
-                $validated['default_selling_price'],
+            'last_buy_price' =>
+                $validated['last_buy_price'],
+            'selling_price' =>
+                $validated['selling_price'],
             'minimum_stock' =>
                 $validated['minimum_stock'],
             'is_active' => $request->boolean('is_active'),
@@ -267,3 +281,4 @@ class ProductController extends Controller
         ]);
     }
 }
+
