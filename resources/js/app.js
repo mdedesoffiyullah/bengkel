@@ -1,141 +1,18 @@
 import './bootstrap';
 
-const initSearchableSelects = (root = document) => {
-    root.querySelectorAll('select:not([multiple]):not([data-searchable-ready="1"])').forEach(select => {
-        if (select.closest('[data-searchable-wrapper="1"]')) return;
-
-        const wrapper = document.createElement('div');
-        wrapper.className = 'relative searchable-select-wrapper';
-        wrapper.dataset.searchableWrapper = '1';
-        select.parentNode.insertBefore(wrapper, select);
-        wrapper.appendChild(select);
-
-        const options = Array.from(select.options);
-        const placeholderOption = options.find(option => option.value === '');
-        const placeholder = placeholderOption?.textContent?.trim() || 'Pilih...';
-
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.autocomplete = 'off';
-        input.className = 'w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500';
-        input.placeholder = placeholder;
-        input.disabled = select.disabled;
-        input.setAttribute('role', 'combobox');
-        input.setAttribute('aria-expanded', 'false');
-        input.setAttribute('aria-autocomplete', 'list');
-
-        const dropdown = document.createElement('div');
-        dropdown.className = 'absolute z-50 mt-1 hidden w-full max-h-60 overflow-auto rounded-lg border border-gray-200 bg-white shadow-lg';
-        dropdown.setAttribute('role', 'listbox');
-
-        select.classList.add('hidden');
-        select.dataset.searchableReady = '1';
-        wrapper.appendChild(input);
-        wrapper.appendChild(dropdown);
-
-        const syncInput = () => {
-            const selected = select.options[select.selectedIndex];
-            input.value = selected && selected.value !== '' ? selected.textContent.trim() : '';
-            input.placeholder = selected && selected.value !== '' ? '' : placeholder;
-        };
-
-        const closeDropdown = () => {
-            dropdown.classList.add('hidden');
-            input.setAttribute('aria-expanded', 'false');
-        };
-
-        const renderOptions = (query = '') => {
-            const normalized = query.trim().toLowerCase();
-            dropdown.innerHTML = '';
-
-            options.forEach(option => {
-                if (option.disabled) return;
-                const text = option.textContent.trim();
-                if (option.value !== '' && normalized && !text.toLowerCase().includes(normalized)) return;
-
-                const button = document.createElement('button');
-                button.type = 'button';
-                button.className = 'block w-full px-3 py-2 text-left text-sm hover:bg-gray-50';
-                button.textContent = text || placeholder;
-
-                if (option.value === select.value) {
-                    button.classList.add('bg-gray-50', 'font-medium');
-                }
-
-                button.addEventListener('mousedown', event => event.preventDefault());
-                button.addEventListener('click', () => {
-                    select.value = option.value;
-                    select.dispatchEvent(new Event('change', { bubbles: true }));
-                    syncInput();
-                    closeDropdown();
-                });
-
-                dropdown.appendChild(button);
-            });
-
-            if (!dropdown.children.length) {
-                const empty = document.createElement('div');
-                empty.className = 'px-3 py-2 text-sm text-gray-500';
-                empty.textContent = 'Tidak ada hasil.';
-                dropdown.appendChild(empty);
-            }
-        };
-
-        const openDropdown = () => {
-            if (select.disabled) return;
-            dropdown.classList.remove('hidden');
-            input.setAttribute('aria-expanded', 'true');
-            renderOptions(input.value);
-        };
-
-        input.addEventListener('focus', openDropdown);
-        input.addEventListener('click', openDropdown);
-        input.addEventListener('input', () => {
-            openDropdown();
-            renderOptions(input.value);
-        });
-        input.addEventListener('keydown', event => {
-            if (event.key === 'Escape') {
-                closeDropdown();
-                syncInput();
-            } else if (event.key === 'Enter') {
-                const first = dropdown.querySelector('button');
-                if (first) {
-                    event.preventDefault();
-                    first.click();
-                }
-            }
-        });
-
-        select.addEventListener('change', syncInput);
-        syncInput();
-    });
-};
-
-document.addEventListener('click', event => {
-    document.querySelectorAll('[data-searchable-wrapper="1"]').forEach(wrapper => {
-        if (!wrapper.contains(event.target)) {
-            wrapper.querySelector('[role="listbox"]')?.classList.add('hidden');
-            wrapper.querySelector('[role="combobox"]')?.setAttribute('aria-expanded', 'false');
-        }
-    });
-});
+/*
+ * Global JS bootstrap.
+ *
+ * Work Order has its own inline UI/JS because item rows are created dynamically.
+ * Do NOT transform every <select> globally: doing that breaks the Work Order
+ * item-type/source controls and their inline event handlers.
+ */
 
 document.addEventListener('DOMContentLoaded', () => {
-    initSearchableSelects();
+    if (!window.location.pathname.startsWith('/work-orders')) {
+        return;
+    }
 
-    const observer = new MutationObserver(mutations => {
-        mutations.forEach(mutation => {
-            mutation.addedNodes.forEach(node => {
-                if (node.nodeType === Node.ELEMENT_NODE) initSearchableSelects(node);
-            });
-        });
-    });
-
-    observer.observe(document.body, { childList: true, subtree: true });
-});
-
-if (window.location.pathname.startsWith('/work-orders')) {
     const supplierCache = new Map();
 
     const loadSuppliers = async productId => {
@@ -174,7 +51,7 @@ if (window.location.pathname.startsWith('/work-orders')) {
 
         if (!wrapper) {
             wrapper = document.createElement('div');
-            wrapper.className = 'supplier-box md:col-span-2';
+            wrapper.className = 'supplier-box md:col-span-2 hidden';
             wrapper.innerHTML = `
                 <label class="block text-sm font-medium mb-1">Supplier Pembelian</label>
                 <div class="relative">
@@ -331,11 +208,11 @@ if (window.location.pathname.startsWith('/work-orders')) {
             await refreshSuppliers();
         }
 
-        // Supplier hanya relevan untuk Sparepart.
         if (typeSelect.value === 'PRODUCT') {
             wrapper.classList.remove('hidden');
         } else {
             wrapper.classList.add('hidden');
+            wrapper.querySelector('.supplier-new')?.classList.add('hidden');
         }
     };
 
@@ -355,4 +232,4 @@ if (window.location.pathname.startsWith('/work-orders')) {
     });
 
     scanRows();
-}
+});
