@@ -30,7 +30,7 @@
 </head>
 <body>
 <div class="receipt">
-    <button type="button" class="print-button" onclick="window.print()">🖨 CETAK</button>
+    <button type="button" class="print-button" onclick="window.print()">🖨 CETAK NOTA</button>
 
     <div class="center">
         <div class="title">BENGKEL</div>
@@ -96,5 +96,13 @@
         <div>ATAS KEPERCAYAAN ANDA</div>
     </div>
 </div>
+
+<script>
+    window.addEventListener('load', function () {
+        setTimeout(function () {
+            window.print();
+        }, 250);
+    });
+</script>
 </body>
 </html>
