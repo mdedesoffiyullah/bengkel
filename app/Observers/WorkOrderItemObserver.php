@@ -29,12 +29,9 @@ class WorkOrderItemObserver implements ShouldHandleEventsAfterCommit
         app(InventoryFifoService::class)->syncWorkOrderConsumption($workOrder);
     }
 
-    private function syncPurchaseFromWorkOrderItem(
-        WorkOrderItem $item,
-        $workOrder
-    ): void {
+    private function syncPurchaseFromWorkOrderItem(WorkOrderItem $item, $workOrder): void
+    {
         $purchaseQuantity = (int) ($item->purchase_quantity ?? 0);
-
         if ($purchaseQuantity <= 0) {
             return;
         }
@@ -44,13 +41,8 @@ class WorkOrderItemObserver implements ShouldHandleEventsAfterCommit
         }
 
         $supplierId = $item->supplier_id;
-
-        // Backward compatibility for the current database where there is
-        // exactly one active supplier. Once the WO form supplies supplier_id,
-        // that explicit value always wins.
         if (!$supplierId) {
             $activeSuppliers = Supplier::where('is_active', true)->get(['id']);
-
             if ($activeSuppliers->count() === 1) {
                 $supplierId = $activeSuppliers->first()->id;
             }
@@ -61,29 +53,31 @@ class WorkOrderItemObserver implements ShouldHandleEventsAfterCommit
         }
 
         $unitCost = (float) ($item->unit_cost ?? 0);
-        $subtotal = max(0, $purchaseQuantity * $unitCost);
+        $lineTotal = max(0, $purchaseQuantity * $unitCost);
 
-        DB::transaction(function () use (
-            $item,
-            $workOrder,
-            $supplierId,
-            $purchaseQuantity,
-            $unitCost,
-            $subtotal
-        ) {
-            $purchase = Purchase::create([
-                'code' => 'PO-WO-' . $workOrder->code,
-                'supplier_id' => $supplierId,
-                'work_order_id' => $workOrder->id,
-                'status' => 'RECEIVED',
-                'purchase_type' => 'WO',
-                'purchase_date' => $workOrder->opened_at ?? now(),
-                'received_at' => now(),
-                'subtotal' => $subtotal,
-                'discount' => 0,
-                'grand_total' => $subtotal,
-                'notes' => 'Purchase otomatis dari Work Order ' . $workOrder->code,
-            ]);
+        DB::transaction(function () use ($item, $workOrder, $supplierId, $purchaseQuantity, $unitCost, $lineTotal) {
+            $purchase = Purchase::where('work_order_id', $workOrder->id)
+                ->where('purchase_type', 'WO')
+                ->where('supplier_id', $supplierId)
+                ->where('status', '!=', 'CANCELLED')
+                ->latest('id')
+                ->first();
+
+            if (!$purchase) {
+                $purchase = Purchase::create([
+                    'code' => 'PO-WO-' . $workOrder->code . '-' . $supplierId,
+                    'supplier_id' => $supplierId,
+                    'work_order_id' => $workOrder->id,
+                    'status' => 'RECEIVED',
+                    'purchase_type' => 'WO',
+                    'purchase_date' => $workOrder->opened_at ?? now(),
+                    'received_at' => now(),
+                    'subtotal' => 0,
+                    'discount' => 0,
+                    'grand_total' => 0,
+                    'notes' => 'Purchase otomatis dari Work Order ' . $workOrder->code,
+                ]);
+            }
 
             $purchaseItem = PurchaseItem::create([
                 'purchase_id' => $purchase->id,
@@ -93,8 +87,8 @@ class WorkOrderItemObserver implements ShouldHandleEventsAfterCommit
                 'unit_cost' => $unitCost,
                 'selling_price' => (float) ($item->unit_price ?? 0),
                 'discount_amount' => 0,
-                'subtotal' => $subtotal,
-                'received_quantity' => $purchaseQuantity,
+                'subtotal' => $lineTotal,
+                'received_quantity' => 0,
                 'notes' => 'Dibuat otomatis dari Work Order ' . $workOrder->code,
             ]);
 
@@ -104,17 +98,37 @@ class WorkOrderItemObserver implements ShouldHandleEventsAfterCommit
                 $purchase->received_at
             );
 
-            if ($subtotal > 0) {
-                Payment::create([
-                    'code' => 'PAY-PO-' . $purchase->code,
-                    'transaction_type' => 'PURCHASE_PAYMENT',
-                    'purchase_id' => $purchase->id,
-                    'paid_at' => $purchase->received_at,
-                    'amount' => $subtotal,
-                    'method' => 'OTHER',
-                    'reference_number' => null,
-                    'notes' => 'Pembayaran supplier otomatis dari Work Order ' . $workOrder->code,
-                ]);
+            $purchase->update([
+                'status' => 'RECEIVED',
+                'received_at' => $purchase->received_at ?? now(),
+                'subtotal' => (float) $purchase->items()->sum('subtotal'),
+                'grand_total' => (float) $purchase->items()->sum('subtotal'),
+            ]);
+
+            $payment = Payment::where('purchase_id', $purchase->id)
+                ->where('transaction_type', 'PURCHASE_PAYMENT')
+                ->first();
+
+            $purchaseTotal = (float) $purchase->grand_total;
+
+            if ($purchaseTotal > 0) {
+                if ($payment) {
+                    $payment->update([
+                        'amount' => $purchaseTotal,
+                        'paid_at' => $purchase->received_at,
+                    ]);
+                } else {
+                    Payment::create([
+                        'code' => 'PAY-PO-' . $purchase->code,
+                        'transaction_type' => 'PURCHASE_PAYMENT',
+                        'purchase_id' => $purchase->id,
+                        'paid_at' => $purchase->received_at,
+                        'amount' => $purchaseTotal,
+                        'method' => 'OTHER',
+                        'reference_number' => null,
+                        'notes' => 'Pembayaran supplier otomatis dari Work Order ' . $workOrder->code,
+                    ]);
+                }
             }
         });
     }
