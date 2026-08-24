@@ -9,7 +9,9 @@ class Payment extends Model
 {
     protected $fillable = [
         'code',
+        'transaction_type',
         'work_order_id',
+        'purchase_id',
         'paid_at',
         'amount',
         'method',
@@ -28,5 +30,10 @@ class Payment extends Model
     public function workOrder(): BelongsTo
     {
         return $this->belongsTo(WorkOrder::class);
+    }
+
+    public function purchase(): BelongsTo
+    {
+        return $this->belongsTo(Purchase::class);
     }
 }
