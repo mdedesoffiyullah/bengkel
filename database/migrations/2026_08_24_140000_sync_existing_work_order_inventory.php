@@ -4,7 +4,6 @@ use App\Models\WorkOrder;
 use App\Services\InventoryFifoService;
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Support\Facades\DB;
-use RuntimeException;
 
 return new class extends Migration
 {
@@ -24,7 +23,7 @@ return new class extends Migration
             ->each(function (WorkOrder $workOrder) {
                 try {
                     app(InventoryFifoService::class)->syncWorkOrderConsumption($workOrder);
-                } catch (RuntimeException $e) {
+                } catch (\RuntimeException $e) {
                     // Historical data can contain WO quantities that exceed the
                     // stock that actually existed at that point in time. Do not
                     // abort the whole repair migration; leave that WO untouched
