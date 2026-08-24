@@ -4,7 +4,6 @@ namespace App\Observers;
 
 use App\Models\WorkOrderItem;
 use App\Services\InventoryFifoService;
-use RuntimeException;
 
 class WorkOrderItemObserver
 {
@@ -14,24 +13,14 @@ class WorkOrderItemObserver
             return;
         }
 
-        // WorkOrderController already consumes normal stock when there is no
-        // linked purchase. Only purchase-linked WO items need this observer.
-        if ((int) $item->purchase_quantity <= 0) {
+        $workOrder = $item->workOrder;
+        if (!$workOrder) {
             return;
         }
 
-        $quantity = (int) ($item->wo_quantity ?: $item->quantity);
-        if ($quantity <= 0) {
-            return;
-        }
-
-        app(InventoryFifoService::class)->consumeForWorkOrder(
-            $item->workOrder,
-            (int) $item->product_id,
-            $quantity,
-            $item->id
-        );
-
-        $item->updateQuietly(['status' => 'USED']);
+        // Every successful WO item save represents a physical issue from stock.
+        // Synchronizing here also restores/rebuilds previous WO consumption
+        // when the controller rebuilds the item list during an edit.
+        app(InventoryFifoService::class)->syncWorkOrderConsumption($workOrder);
     }
 }
