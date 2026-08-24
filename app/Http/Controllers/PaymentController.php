@@ -11,6 +11,8 @@ use Illuminate\Validation\Rule;
 
 class PaymentController extends Controller
 {
+    private const METHODS = ['CASH', 'TRANSFER', 'DEBIT', 'CREDIT_CARD', 'QRIS'];
+
     public function index(Request $request)
     {
         $query = Payment::with(['workOrder.customer', 'purchase.supplier']);
@@ -18,7 +20,6 @@ class PaymentController extends Controller
         if ($request->filled('transaction_type')) {
             $query->where('transaction_type', $request->transaction_type);
         }
-
         if ($request->filled('work_order_id')) {
             $query->where('work_order_id', $request->work_order_id);
         }
@@ -29,9 +30,7 @@ class PaymentController extends Controller
         $purchasePaid = (float) Payment::where('transaction_type', 'PURCHASE_PAYMENT')->sum('amount');
         $todayPayments = Payment::whereDate('paid_at', today())->count();
 
-        return view('payments.index', compact(
-            'payments', 'totalPaid', 'customerReceived', 'purchasePaid', 'todayPayments'
-        ));
+        return view('payments.index', compact('payments', 'totalPaid', 'customerReceived', 'purchasePaid', 'todayPayments'));
     }
 
     public function create(Request $request)
@@ -72,7 +71,7 @@ class PaymentController extends Controller
             'purchase_id' => ['nullable', 'integer', 'exists:purchases,id'],
             'paid_at' => 'required|date',
             'amount' => 'required|numeric|gt:0',
-            'method' => ['required', Rule::in(['CASH','BANK_TRANSFER','DEBIT_CARD','CREDIT_CARD','QRIS','OTHER'])],
+            'method' => ['required', Rule::in(self::METHODS)],
             'reference_number' => 'nullable|string|max:100',
             'notes' => 'nullable|string',
         ]);
