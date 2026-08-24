@@ -72,10 +72,6 @@
                         </th>
 
                         <th class="px-6 py-4 text-left font-semibold text-gray-600">
-                            Email
-                        </th>
-
-                        <th class="px-6 py-4 text-left font-semibold text-gray-600">
                             Alamat
                         </th>
 
@@ -114,11 +110,6 @@
 
                             <td class="px-6 py-4 text-gray-600">
                                 {{ $supplier->phone ?? '-' }}
-                            </td>
-
-
-                            <td class="px-6 py-4 text-gray-600">
-                                {{ $supplier->email ?? '-' }}
                             </td>
 
 
@@ -188,7 +179,7 @@
 
                         <tr>
 
-                            <td colspan="7" class="px-6 py-12 text-center">
+                            <td colspan="6" class="px-6 py-12 text-center">
 
                                 <p class="text-gray-500">
                                     Belum ada data supplier.

@@ -105,15 +105,6 @@
 
             <div>
                 <p class="text-xs font-medium text-gray-500 uppercase">
-                    Email
-                </p>
-                <p class="mt-1 text-sm text-gray-900">
-                    {{ $supplier->email ?? '-' }}
-                </p>
-            </div>
-
-            <div>
-                <p class="text-xs font-medium text-gray-500 uppercase">
                     Status
                 </p>
                 <p class="mt-1 text-sm text-gray-900">
@@ -151,3 +142,4 @@
 
 </div>
 @endsection
+
