@@ -105,31 +105,40 @@ class WorkOrderItemObserver implements ShouldHandleEventsAfterCommit
                 'grand_total' => (float) $purchase->items()->sum('subtotal'),
             ]);
 
-            $payment = Payment::where('purchase_id', $purchase->id)
-                ->where('transaction_type', 'PURCHASE_PAYMENT')
-                ->first();
-
-            $purchaseTotal = (float) $purchase->grand_total;
-
-            if ($purchaseTotal > 0) {
-                if ($payment) {
-                    $payment->update([
-                        'amount' => $purchaseTotal,
-                        'paid_at' => $purchase->received_at,
-                    ]);
-                } else {
-                    Payment::create([
-                        'code' => 'PAY-PO-' . $purchase->code,
-                        'transaction_type' => 'PURCHASE_PAYMENT',
-                        'purchase_id' => $purchase->id,
-                        'paid_at' => $purchase->received_at,
-                        'amount' => $purchaseTotal,
-                        'method' => 'OTHER',
-                        'reference_number' => null,
-                        'notes' => 'Pembayaran supplier otomatis dari Work Order ' . $workOrder->code,
-                    ]);
-                }
-            }
+            $this->syncPurchasePayment($purchase, $workOrder);
         });
+    }
+
+    private function syncPurchasePayment(Purchase $purchase, $workOrder): void
+    {
+        $purchaseTotal = (float) $purchase->grand_total;
+        if ($purchaseTotal <= 0) {
+            return;
+        }
+
+        $payment = Payment::where('purchase_id', $purchase->id)
+            ->where('transaction_type', 'PURCHASE_PAYMENT')
+            ->first();
+
+        $payload = [
+            'work_order_id' => $workOrder->id,
+            'purchase_id' => $purchase->id,
+            'paid_at' => $purchase->received_at ?? now(),
+            'amount' => $purchaseTotal,
+            'method' => 'OTHER',
+            'reference_number' => null,
+            'notes' => 'Pembayaran supplier otomatis dari Work Order ' . $workOrder->code,
+        ];
+
+        if ($payment) {
+            $payment->update($payload);
+            return;
+        }
+
+        Payment::create([
+            'code' => 'PAY-PO-' . $purchase->code,
+            'transaction_type' => 'PURCHASE_PAYMENT',
+            ...$payload,
+        ]);
     }
 }
