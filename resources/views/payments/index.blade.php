@@ -1,305 +1,55 @@
-﻿@extends('layouts.app')
+@extends('layouts.app')
 
 @section('content')
-
 <div class="space-y-6">
-
-    {{-- Header --}}
-    <div class="flex items-center justify-between">
-
-        <div>
-            <h1 class="text-2xl font-bold text-gray-900">
-                Payments
-            </h1>
-
-            <p class="mt-1 text-sm text-gray-500">
-                Kelola pembayaran pelanggan berdasarkan Work Order.
-            </p>
-        </div>
-
+    <div>
+        <h1 class="text-2xl font-bold text-gray-900">Payments</h1>
+        <p class="mt-1 text-sm text-gray-500">Buku transaksi uang masuk dan uang keluar.</p>
     </div>
 
+    @if (session('success'))<div class="px-4 py-3 rounded-lg bg-green-100 border border-green-200 text-green-700 text-sm">{{ session('success') }}</div>@endif
+    @if (session('error'))<div class="px-4 py-3 rounded-lg bg-red-100 border border-red-200 text-red-700 text-sm">{{ session('error') }}</div>@endif
 
-    {{-- Success --}}
-    @if (session('success'))
-
-        <div class="px-4 py-3 rounded-lg bg-green-100 border border-green-200 text-green-700 text-sm">
-            {{ session('success') }}
-        </div>
-
-    @endif
-
-
-    {{-- Error --}}
-    @if (session('error'))
-
-        <div class="px-4 py-3 rounded-lg bg-red-100 border border-red-200 text-red-700 text-sm">
-            {{ session('error') }}
-        </div>
-
-    @endif
-
-
-    {{-- Summary --}}
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-
-        <div class="bg-white rounded-xl border border-gray-200 p-5">
-
-            <p class="text-sm text-gray-500">
-                Total Payment
-            </p>
-
-            <p class="mt-2 text-2xl font-bold text-gray-900">
-                {{ $payments->total() }}
-            </p>
-
-        </div>
-
-
-        <div class="bg-white rounded-xl border border-gray-200 p-5">
-
-            <p class="text-sm text-gray-500">
-                Total Dibayar
-            </p>
-
-            <p class="mt-2 text-2xl font-bold text-green-600">
-
-                Rp
-                {{ number_format(
-                    $totalPaid ?? 0,
-                    0,
-                    ',',
-                    '.'
-                ) }}
-
-            </p>
-
-        </div>
-
-
-        <div class="bg-white rounded-xl border border-gray-200 p-5">
-
-            <p class="text-sm text-gray-500">
-                Transaksi Hari Ini
-            </p>
-
-            <p class="mt-2 text-2xl font-bold text-blue-600">
-                {{ $todayPayments ?? 0 }}
-            </p>
-
-        </div>
-
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="bg-white rounded-xl border p-5"><p class="text-sm text-gray-500">Total Transaksi</p><p class="mt-2 text-2xl font-bold">{{ $payments->total() }}</p></div>
+        <div class="bg-white rounded-xl border p-5"><p class="text-sm text-gray-500">Customer Masuk</p><p class="mt-2 text-2xl font-bold text-green-600">Rp {{ number_format($customerReceived,0,',','.') }}</p></div>
+        <div class="bg-white rounded-xl border p-5"><p class="text-sm text-gray-500">Purchase Keluar</p><p class="mt-2 text-2xl font-bold text-red-600">Rp {{ number_format($purchasePaid,0,',','.') }}</p></div>
+        <div class="bg-white rounded-xl border p-5"><p class="text-sm text-gray-500">Arus Kas Bersih</p><p class="mt-2 text-2xl font-bold">Rp {{ number_format($customerReceived-$purchasePaid,0,',','.') }}</p></div>
     </div>
 
+    <div class="flex justify-end"><a href="{{ route('payments.create') }}" class="px-5 py-2 rounded-lg bg-slate-900 text-white text-sm font-semibold">+ Catat Payment</a></div>
 
-    {{-- Payment Table --}}
-    <div class="bg-white rounded-xl border border-gray-200 overflow-hidden">
-
-        <div class="px-6 py-5 border-b border-gray-200">
-
-            <h2 class="font-semibold text-gray-900">
-                Daftar Payment
-            </h2>
-
-            <p class="mt-1 text-sm text-gray-500">
-                Riwayat pembayaran pelanggan.
-            </p>
-
-        </div>
-
-
+    <div class="bg-white rounded-xl border overflow-hidden">
+        <div class="px-6 py-5 border-b"><h2 class="font-semibold">Buku Payment</h2><p class="mt-1 text-sm text-gray-500">Customer payment dan purchase payment berada dalam satu histori keuangan.</p></div>
         <div class="overflow-x-auto">
-
             <table class="w-full text-sm">
-
-                <thead class="bg-gray-50 border-b border-gray-200">
-
-                    <tr>
-
-                        <th class="px-6 py-4 text-left font-semibold text-gray-600">
-                            No. Payment
-                        </th>
-
-                        <th class="px-6 py-4 text-left font-semibold text-gray-600">
-                            Tanggal
-                        </th>
-
-                        <th class="px-6 py-4 text-left font-semibold text-gray-600">
-                            Customer
-                        </th>
-
-                        <th class="px-6 py-4 text-left font-semibold text-gray-600">
-                            Work Order
-                        </th>
-
-                        <th class="px-6 py-4 text-left font-semibold text-gray-600">
-                            Metode
-                        </th>
-
-                        <th class="px-6 py-4 text-right font-semibold text-gray-600">
-                            Jumlah
-                        </th>
-
-                        <th class="px-6 py-4 text-right font-semibold text-gray-600">
-                            Aksi
-                        </th>
-
+                <thead class="bg-gray-50 border-b"><tr>
+                    <th class="px-6 py-4 text-left">Kode</th><th class="px-6 py-4 text-left">Tanggal</th><th class="px-6 py-4 text-left">Jenis</th><th class="px-6 py-4 text-left">Pihak / Dokumen</th><th class="px-6 py-4 text-left">Metode</th><th class="px-6 py-4 text-right">Jumlah</th><th class="px-6 py-4 text-right">Aksi</th>
+                </tr></thead>
+                <tbody class="divide-y">
+                @forelse ($payments as $payment)
+                    <tr class="hover:bg-gray-50">
+                        <td class="px-6 py-4 font-semibold">{{ $payment->code }}</td>
+                        <td class="px-6 py-4 text-gray-600">{{ $payment->paid_at?->format('d/m/Y H:i') ?? '-' }}</td>
+                        <td class="px-6 py-4"><span class="inline-flex px-2.5 py-1 rounded-full text-xs font-medium {{ $payment->transaction_type === 'PURCHASE_PAYMENT' ? 'bg-red-100 text-red-700' : 'bg-green-100 text-green-700' }}">{{ $payment->transaction_type === 'PURCHASE_PAYMENT' ? 'PURCHASE / OUT' : 'CUSTOMER / IN' }}</span></td>
+                        <td class="px-6 py-4">
+                            @if ($payment->transaction_type === 'PURCHASE_PAYMENT')
+                                <div class="font-medium">{{ $payment->purchase?->supplier?->name ?? '-' }}</div><div class="text-xs text-gray-500">{{ $payment->purchase?->code ?? '-' }}</div>
+                            @else
+                                <div class="font-medium">{{ $payment->workOrder?->customer?->name ?? 'Tanpa Customer' }}</div><div class="text-xs text-gray-500">{{ $payment->workOrder?->code ?? '-' }}</div>
+                            @endif
+                        </td>
+                        <td class="px-6 py-4">{{ match($payment->method){'CASH'=>'Cash','BANK_TRANSFER'=>'Bank Transfer','DEBIT_CARD'=>'Debit Card','CREDIT_CARD'=>'Credit Card','QRIS'=>'QRIS','OTHER'=>'Other',default=>$payment->method} }}</td>
+                        <td class="px-6 py-4 text-right font-semibold {{ $payment->transaction_type === 'PURCHASE_PAYMENT' ? 'text-red-600' : 'text-green-600' }}">{{ $payment->transaction_type === 'PURCHASE_PAYMENT' ? '-' : '+' }} Rp {{ number_format((float)$payment->amount,0,',','.') }}</td>
+                        <td class="px-6 py-4 text-right"><a href="{{ route('payments.show',$payment) }}" class="px-3 py-1.5 text-xs rounded-lg border">Detail</a></td>
                     </tr>
-
-                </thead>
-
-
-                <tbody class="divide-y divide-gray-200">
-
-                    @forelse ($payments as $payment)
-
-                        <tr class="hover:bg-gray-50">
-
-                            {{-- Payment Number --}}
-                            <td class="px-6 py-4">
-
-                                <div class="font-semibold text-gray-900">
-                                    {{ $payment->code ?? '-' }}
-                                </div>
-
-                            </td>
-
-
-                            {{-- Date --}}
-                            <td class="px-6 py-4 text-gray-600">
-
-                                {{ $payment->paid_at
-                                    ? $payment->paid_at->format('d/m/Y H:i')
-                                    : '-' }}
-
-                            </td>
-
-
-                            {{-- Customer --}}
-                            <td class="px-6 py-4">
-
-                                <div class="font-medium text-gray-900">
-                                    {{ $payment->workOrder?->customer?->name ?? '-' }}
-                                </div>
-
-                            </td>
-
-
-                            {{-- Work Order --}}
-                            <td class="px-6 py-4">
-
-                                @if ($payment->workOrder)
-
-                                    <a href="{{ route('work-orders.show', $payment->workOrder) }}"
-                                       class="font-medium text-slate-700 hover:text-slate-900">
-                                        {{ $payment->workOrder->code }}
-                                    </a>
-
-                                @else
-
-                                    <span class="text-gray-400">
-                                        -
-                                    </span>
-
-                                @endif
-
-                            </td>
-
-
-                            {{-- Method --}}
-                            <td class="px-6 py-4">
-
-                                <span class="inline-flex px-2.5 py-1 text-xs font-medium rounded-full bg-gray-100 text-gray-700">
-
-                                    {{ match($payment->method) {
-                                        'CASH' => 'Cash',
-                                        'BANK_TRANSFER' => 'Bank Transfer',
-                                        'DEBIT_CARD' => 'Debit Card',
-                                        'CREDIT_CARD' => 'Credit Card',
-                                        'QRIS' => 'QRIS',
-                                        'OTHER' => 'Other',
-                                        default => $payment->method ?? '-',
-                                    } }}
-
-                                </span>
-
-                            </td>
-
-
-                            {{-- Amount --}}
-                            <td class="px-6 py-4 text-right font-semibold text-gray-900">
-
-                                Rp
-                                {{ number_format(
-                                    (float) $payment->amount,
-                                    0,
-                                    ',',
-                                    '.'
-                                ) }}
-
-                            </td>
-
-
-                            {{-- Actions --}}
-                            <td class="px-6 py-4">
-
-                                <div class="flex items-center justify-end gap-2">
-
-                                    <a href="{{ route('payments.show', $payment) }}"
-                                       class="px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 hover:bg-gray-50 transition">
-                                        Detail
-                                    </a>
-
-                                </div>
-
-                            </td>
-
-                        </tr>
-
-
-                    @empty
-
-                        <tr>
-
-                            <td colspan="7" class="px-6 py-12 text-center">
-
-                                <div class="text-gray-400 text-4xl mb-3">
-                                    Ã°Å¸â€™Â³
-                                </div>
-
-                                <p class="text-gray-500">
-                                    Belum ada pembayaran.
-                                </p>
-
-                                <a href="{{ route('payments.create') }}"
-                                   class="inline-block mt-3 text-sm font-medium text-slate-700 hover:text-slate-900">
-                                    Catat pembayaran pertama
-                                </a>
-
-                            </td>
-
-                        </tr>
-
-                    @endforelse
-
+                @empty
+                    <tr><td colspan="7" class="px-6 py-12 text-center text-gray-500">Belum ada transaksi pembayaran.</td></tr>
+                @endforelse
                 </tbody>
-
             </table>
-
         </div>
-
-
-        {{-- Pagination --}}
-        @if ($payments->hasPages())
-
-            <div class="px-6 py-4 border-t border-gray-200">
-                {{ $payments->links() }}
-            </div>
-
-        @endif
-
+        @if ($payments->hasPages())<div class="px-6 py-4 border-t">{{ $payments->links() }}</div>@endif
     </div>
-
 </div>
-
 @endsection
