@@ -11,7 +11,12 @@ class SupplierController extends Controller
     public function index(Request $request)
     {
         if ($request->boolean('json')) {
-            return response()->json(Supplier::where('is_active', true)->orderBy('name')->get(['id', 'code', 'name']));
+            $query = Supplier::where('is_active', true);
+            if ($request->filled('product_id')) {
+                $productId = (int) $request->input('product_id');
+                $query->orderByRaw('CASE WHEN id IN (SELECT p.supplier_id FROM purchases p INNER JOIN purchase_items pi ON pi.purchase_id = p.id WHERE pi.product_id = ?) THEN 0 ELSE 1 END', [$productId]);
+            }
+            return response()->json($query->orderBy('name')->get(['id', 'code', 'name', 'contact_person', 'phone']));
         }
         $suppliers = Supplier::latest()->paginate(10);
         return view('suppliers.index', compact('suppliers'));
