@@ -117,7 +117,9 @@ return new class extends Migration
             'purchase_id' => $purchase->id,
             'paid_at' => $purchase->received_at ?? now(),
             'amount' => $total,
-            'method' => 'OTHER',
+            // The existing payments.method enum does not contain OTHER.
+            // CASH is the neutral default for an automatically-created supplier payment.
+            'method' => 'CASH',
             'reference_number' => null,
             'notes' => 'Pembayaran supplier otomatis dari Work Order ' . $workOrder->code,
         ];
