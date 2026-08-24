@@ -34,6 +34,68 @@ Route::resource('products', ProductController::class);
 Route::resource('suppliers', SupplierController::class);
 Route::resource('services', ServiceController::class);
 Route::resource('work-orders', WorkOrderController::class);
+
+Route::get('/work-orders/{workOrder}/print-direct', function (\App\Models\WorkOrder $workOrder) {
+    $workOrder->load(['customer', 'items.product', 'items.service', 'payments']);
+
+    $money = fn ($value) => 'Rp ' . number_format((float) $value, 0, ',', '.');
+    $qty = fn ($value) => rtrim(rtrim(number_format((float) $value, 3, ',', '.'), '0'), ',');
+    $line = str_repeat('-', 32);
+
+    $text = "\x1B@";
+    $text .= "\x1B!\x08";
+    $text .= "BENGKEL\n";
+    $text .= "MANAGEMENT SYSTEM\n";
+    $text .= "\x1B!\x00";
+    $text .= $line . "\n";
+    $text .= "NO : {$workOrder->code}\n";
+    $text .= "TGL: " . optional($workOrder->opened_at)->format('d/m/Y H:i') . "\n";
+    $text .= $line . "\n";
+    $text .= "CUSTOMER\n";
+    $text .= ($workOrder->customer->name ?? '-') . "\n";
+    $text .= "TELP: " . ($workOrder->customer->phone ?? '-') . "\n";
+    $text .= "NOPOL: " . ($workOrder->customer->plate_number ?? '-') . "\n";
+    $text .= "KEND: " . (trim(($workOrder->customer->brand ?? '') . ' ' . ($workOrder->customer->type ?? '')) ?: '-') . "\n";
+    $text .= $line . "\n";
+    $text .= "PEKERJAAN / SPAREPART\n";
+
+    foreach ($workOrder->items as $item) {
+        $name = $item->item_name ?? $item->product?->name ?? $item->service?->name ?? '-';
+        $text .= $name . "\n";
+        $text .= $qty($item->quantity) . " x " . $money($item->unit_price) . " = " . $money($item->subtotal) . "\n";
+    }
+
+    $totalPaid = (float) ($workOrder->payments?->sum('amount') ?? 0);
+    $grandTotal = (float) ($workOrder->grand_total ?? 0);
+    $remaining = max(0, $grandTotal - $totalPaid);
+
+    $text .= $line . "\n";
+    $text .= "Subtotal : " . $money($workOrder->subtotal) . "\n";
+    $text .= "Discount : " . $money($workOrder->discount) . "\n";
+    $text .= "TOTAL    : " . $money($grandTotal) . "\n";
+    $text .= $line . "\n";
+    $text .= "Dibayar  : " . $money($totalPaid) . "\n";
+    $text .= "Sisa     : " . $money($remaining) . "\n";
+    $text .= $line . "\n";
+    $text .= "TERIMA KASIH\n";
+    $text .= "ATAS KEPERCAYAAN ANDA\n\n\n";
+    $text .= "\x1DV\x00";
+
+    $encoded = base64_encode($text);
+    $printer = 'SUPERISC S31';
+    $script = '$b=[Convert]::FromBase64String(\'' . $encoded . '\'); $s=[Text.Encoding]::Default.GetString($b); $s | Out-Printer -Name \'' . $printer . '\'';
+    $command = 'powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -Command ' . escapeshellarg($script);
+    $output = [];
+    $exitCode = 0;
+    exec($command . ' 2>&1', $output, $exitCode);
+
+    if ($exitCode !== 0) {
+        return response("Gagal mengirim nota ke printer {$printer}.\n" . implode("\n", $output), 500);
+    }
+
+    return response("Nota {$workOrder->code} dikirim ke printer {$printer}.");
+})->name('work-orders.print-direct');
+
 Route::get('/work-orders/{workOrder}/print', function (\App\Models\WorkOrder $workOrder) {
     $workOrder->load(['customer', 'items.product', 'items.service', 'items.supplier', 'payments']);
     return view('work_orders.print', compact('workOrder'));
