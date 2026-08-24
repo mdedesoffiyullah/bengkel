@@ -1,7 +1,6 @@
 ﻿<?php
 
 use Illuminate\Support\Facades\Route;
-
 use App\Http\Controllers\CustomerController;
 use App\Http\Controllers\VehicleController;
 use App\Http\Controllers\ProductCategoryController;
@@ -27,179 +26,31 @@ use App\Http\Controllers\ExpenseController;
 use App\Http\Controllers\ComplaintController;
 use App\Http\Controllers\ActivityLogController;
 
-
-/*
-|--------------------------------------------------------------------------
-| Dashboard
-|--------------------------------------------------------------------------
-*/
-
-Route::get('/', function () {
-    return view('dashboard');
-})->name('dashboard');
-
-
-/*
-|--------------------------------------------------------------------------
-| Master Data
-|--------------------------------------------------------------------------
-*/
-
+Route::get('/', fn () => view('dashboard'))->name('dashboard');
 Route::resource('customers', CustomerController::class);
-
 Route::resource('vehicles', VehicleController::class);
-
-Route::resource(
-    'product-categories',
-    ProductCategoryController::class
-);
-
+Route::resource('product-categories', ProductCategoryController::class);
 Route::resource('products', ProductController::class);
-
 Route::resource('suppliers', SupplierController::class);
-
 Route::resource('services', ServiceController::class);
-
-
-/*
-|--------------------------------------------------------------------------
-| Work Order
-|--------------------------------------------------------------------------
-*/
-
-Route::resource(
-    'work-orders',
-    WorkOrderController::class
-);
-
-Route::resource(
-    'work-order-items',
-    WorkOrderItemController::class
-);
-
-Route::resource(
-    'work-order-additional-charges',
-    WorkOrderAdditionalChargeController::class
-);
-
-
-/*
-|--------------------------------------------------------------------------
-| Purchasing
-|--------------------------------------------------------------------------
-*/
-
-Route::resource(
-    'purchases',
-    PurchaseController::class
-);
-
-Route::resource(
-    'purchase-items',
-    PurchaseItemController::class
-);
-
-
-/*
-|--------------------------------------------------------------------------
-| Inventory
-|--------------------------------------------------------------------------
-*/
-
-Route::resource(
-    'inventory-balances',
-    InventoryBalanceController::class
-);
-
-Route::resource(
-    'inventory-layers',
-    InventoryLayerController::class
-);
-
-Route::resource(
-    'stock-allocations',
-    StockAllocationController::class
-);
-
-Route::resource(
-    'stock-movements',
-    StockMovementController::class
-);
-
-Route::post(
-    'stock-opnames/{stockOpname}/items',
-    [StockOpnameController::class, 'addItem']
-)->name('stock-opnames.items.store');
-
-Route::resource(
-    'stock-opnames',
-    StockOpnameController::class
-);
-
-Route::resource(
-    'stock-opname-items',
-    StockOpnameItemController::class
-);
-
-
-/*
-|--------------------------------------------------------------------------
-| Finance
-|--------------------------------------------------------------------------
-*/
-
-Route::resource(
-    'payments',
-    PaymentController::class
-);
-
-Route::get(
-    'profit-loss',
-    [ProfitLossController::class, 'index']
-)->name('profit-loss.index');
-
-Route::resource(
-    'invoices',
-    InvoiceController::class
-);
-
-Route::resource(
-    'refunds',
-    RefundController::class
-);
-
-
-Route::resource(
-    'expenses',
-    ExpenseController::class
-);
-
-
-/*
-|--------------------------------------------------------------------------
-| Customer Service
-|--------------------------------------------------------------------------
-*/
-
-Route::resource(
-    'complaints',
-    ComplaintController::class
-);
-
-
-/*
-|--------------------------------------------------------------------------
-| Audit
-|--------------------------------------------------------------------------
-*/
-
-Route::resource(
-    'activity-logs',
-    ActivityLogController::class
-);
-Route::patch('/work-orders/{workOrder}/final', [App\Http\Controllers\WorkOrderController::class, 'final'])
-    ->name('work-orders.final');
-
-
-
-
+Route::resource('work-orders', WorkOrderController::class);
+Route::patch('/work-orders/{workOrder}/final', [WorkOrderController::class, 'final'])->name('work-orders.final');
+Route::resource('work-order-items', WorkOrderItemController::class);
+Route::resource('work-order-additional-charges', WorkOrderAdditionalChargeController::class);
+Route::resource('purchases', PurchaseController::class);
+Route::resource('purchase-items', PurchaseItemController::class);
+Route::resource('inventory-balances', InventoryBalanceController::class);
+Route::resource('inventory-layers', InventoryLayerController::class);
+Route::resource('stock-allocations', StockAllocationController::class);
+Route::resource('stock-movements', StockMovementController::class);
+Route::post('stock-opnames/{stockOpname}/items', [StockOpnameController::class, 'addItem'])->name('stock-opnames.items.store');
+Route::patch('stock-opnames/{stockOpname}/post', [StockOpnameController::class, 'post'])->name('stock-opnames.post');
+Route::resource('stock-opnames', StockOpnameController::class);
+Route::resource('stock-opname-items', StockOpnameItemController::class);
+Route::resource('payments', PaymentController::class);
+Route::get('profit-loss', [ProfitLossController::class, 'index'])->name('profit-loss.index');
+Route::resource('invoices', InvoiceController::class);
+Route::resource('refunds', RefundController::class);
+Route::resource('expenses', ExpenseController::class);
+Route::resource('complaints', ComplaintController::class);
+Route::resource('activity-logs', ActivityLogController::class);
