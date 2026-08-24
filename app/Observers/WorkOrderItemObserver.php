@@ -4,8 +4,9 @@ namespace App\Observers;
 
 use App\Models\WorkOrderItem;
 use App\Services\InventoryFifoService;
+use Illuminate\Contracts\Events\ShouldHandleEventsAfterCommit;
 
-class WorkOrderItemObserver
+class WorkOrderItemObserver implements ShouldHandleEventsAfterCommit
 {
     public function created(WorkOrderItem $item): void
     {
@@ -18,9 +19,9 @@ class WorkOrderItemObserver
             return;
         }
 
-        // Every successful WO item save represents a physical issue from stock.
-        // Synchronizing here also restores/rebuilds previous WO consumption
-        // when the controller rebuilds the item list during an edit.
+        // The controller may consume ordinary stock during the transaction.
+        // After commit we rebuild FIFO consumption from the final WO item set,
+        // which also fixes purchase-linked items and WO edits/rebuilds.
         app(InventoryFifoService::class)->syncWorkOrderConsumption($workOrder);
     }
 }
