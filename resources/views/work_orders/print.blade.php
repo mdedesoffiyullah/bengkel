@@ -5,32 +5,33 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Nota {{ $workOrder->code }}</title>
     <style>
-        @page { size: 88mm auto; margin: 0; }
+        @page { size: 58mm auto; margin: 0; }
         * { box-sizing: border-box; }
-        html, body { margin: 0; padding: 0; width: 88mm; background: #fff; color: #000; font-family: Arial, Helvetica, sans-serif; font-size: 11px; line-height: 1.35; }
-        body { padding: 4mm; }
-        .receipt { width: 80mm; margin: 0 auto; }
+        html, body { margin: 0; padding: 0; width: 58mm; background: #fff; color: #000; font-family: "Courier New", Courier, monospace; font-size: 10px; line-height: 1.25; }
+        body { padding: 3mm 2.5mm; }
+        .receipt { width: 53mm; margin: 0 auto; }
         .center { text-align: center; }
-        .title { font-size: 18px; font-weight: 700; }
-        .subtitle { font-size: 10px; }
+        .title { font-size: 15px; font-weight: 700; }
+        .subtitle { font-size: 9px; }
         .bold { font-weight: 700; }
-        .section { margin-top: 8px; }
-        .line { border-top: 1px dashed #000; margin: 7px 0; }
-        .row { display: flex; justify-content: space-between; gap: 8px; }
+        .section { margin-top: 6px; }
+        .line { border-top: 1px dashed #000; margin: 6px 0; }
+        .row { display: flex; justify-content: space-between; gap: 5px; }
         .item { margin: 0 0 6px; }
-        .item-name { font-weight: 700; }
-        .item-detail { display: flex; justify-content: space-between; gap: 8px; }
+        .item-name { font-weight: 700; overflow-wrap: anywhere; }
+        .item-detail { display: flex; justify-content: space-between; gap: 5px; }
         .item-detail .left { white-space: nowrap; }
         .item-detail .right { text-align: right; white-space: nowrap; }
-        .grand-total { font-size: 17px; font-weight: 700; }
-        .footer { margin-top: 14px; text-align: center; font-size: 10px; }
-        .print-button { width: 100%; margin-bottom: 10px; padding: 8px; border: 1px solid #999; background: #eee; cursor: pointer; }
-        @media print { .print-button { display: none; } body { padding: 3mm; } }
+        .grand-total { font-size: 12px; font-weight: 700; }
+        .footer { margin-top: 10px; text-align: center; font-size: 9px; }
+        .print-button { width: 100%; margin-bottom: 8px; padding: 7px; border: 1px solid #999; background: #eee; cursor: pointer; }
+        @media screen { body { margin: 10px auto; } }
+        @media print { .print-button { display: none; } body { padding: 3mm 2.5mm; } }
     </style>
 </head>
 <body>
 <div class="receipt">
-    <button type="button" class="print-button" onclick="window.print()">🖨 CETAK NOTA</button>
+    <button type="button" class="print-button" onclick="window.print()">CETAK NOTA</button>
 
     <div class="center">
         <div class="title">BENGKEL</div>
@@ -38,10 +39,8 @@
     </div>
 
     <div class="line"></div>
-
     <div class="row"><span>WO</span><span class="bold">{{ $workOrder->code }}</span></div>
     <div class="row"><span>Tanggal</span><span>{{ optional($workOrder->opened_at)->format('d/m/Y H:i') }}</span></div>
-
     <div class="line"></div>
 
     <div class="bold">CUSTOMER</div>
@@ -54,7 +53,6 @@
 
     <div class="line"></div>
     <div class="bold">PEKERJAAN / SPAREPART</div>
-
     <div class="section">
         @forelse($workOrder->items as $item)
             <div class="item">
@@ -99,9 +97,7 @@
 
 <script>
     window.addEventListener('load', function () {
-        setTimeout(function () {
-            window.print();
-        }, 250);
+        setTimeout(function () { window.print(); }, 250);
     });
 </script>
 </body>
