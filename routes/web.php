@@ -1,4 +1,4 @@
-﻿<?php
+<?php
 
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\CustomerController;
@@ -34,6 +34,10 @@ Route::resource('products', ProductController::class);
 Route::resource('suppliers', SupplierController::class);
 Route::resource('services', ServiceController::class);
 Route::resource('work-orders', WorkOrderController::class);
+Route::get('/work-orders/{workOrder}/print', function (\App\Models\WorkOrder $workOrder) {
+    $workOrder->load(['customer', 'items.product', 'items.service', 'items.supplier', 'payments']);
+    return view('work_orders.print', compact('workOrder'));
+})->name('work-orders.print');
 Route::patch('/work-orders/{workOrder}/final', [WorkOrderController::class, 'final'])->name('work-orders.final');
 Route::resource('work-order-items', WorkOrderItemController::class);
 Route::resource('work-order-additional-charges', WorkOrderAdditionalChargeController::class);
