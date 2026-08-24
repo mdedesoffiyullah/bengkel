@@ -42,22 +42,14 @@ Route::get('/work-orders/{workOrder}/print-direct', function (\App\Models\WorkOr
     $qty = fn ($value) => rtrim(rtrim(number_format((float) $value, 3, ',', '.'), '0'), ',');
     $line = str_repeat('-', 32);
 
-    $text = "\x1B@";
-    $text .= "\x1B!\x08";
-    $text .= "BENGKEL\n";
-    $text .= "MANAGEMENT SYSTEM\n";
-    $text .= "\x1B!\x00";
-    $text .= $line . "\n";
-    $text .= "NO : {$workOrder->code}\n";
-    $text .= "TGL: " . optional($workOrder->opened_at)->format('d/m/Y H:i') . "\n";
-    $text .= $line . "\n";
-    $text .= "CUSTOMER\n";
-    $text .= ($workOrder->customer->name ?? '-') . "\n";
+    $text = "\x1B@\x1B!\x08BENGKEL\nMANAGEMENT SYSTEM\n\x1B!\x00";
+    $text .= $line . "\nNO : {$workOrder->code}\n";
+    $text .= "TGL: " . optional($workOrder->opened_at)->format('d/m/Y H:i') . "\n" . $line . "\n";
+    $text .= "CUSTOMER\n" . ($workOrder->customer->name ?? '-') . "\n";
     $text .= "TELP: " . ($workOrder->customer->phone ?? '-') . "\n";
     $text .= "NOPOL: " . ($workOrder->customer->plate_number ?? '-') . "\n";
     $text .= "KEND: " . (trim(($workOrder->customer->brand ?? '') . ' ' . ($workOrder->customer->type ?? '')) ?: '-') . "\n";
-    $text .= $line . "\n";
-    $text .= "PEKERJAAN / SPAREPART\n";
+    $text .= $line . "\nPEKERJAAN / SPAREPART\n";
 
     foreach ($workOrder->items as $item) {
         $name = $item->item_name ?? $item->product?->name ?? $item->service?->name ?? '-';
@@ -68,111 +60,68 @@ Route::get('/work-orders/{workOrder}/print-direct', function (\App\Models\WorkOr
     $totalPaid = (float) ($workOrder->payments?->sum('amount') ?? 0);
     $grandTotal = (float) ($workOrder->grand_total ?? 0);
     $remaining = max(0, $grandTotal - $totalPaid);
+    $text .= $line . "\nSubtotal : " . $money($workOrder->subtotal) . "\n";
+    $text .= "Discount : " . $money($workOrder->discount) . "\nTOTAL    : " . $money($grandTotal) . "\n";
+    $text .= $line . "\nDibayar  : " . $money($totalPaid) . "\nSisa     : " . $money($remaining) . "\n";
+    $text .= $line . "\nTERIMA KASIH\nATAS KEPERCAYAAN ANDA\n\n\n\x1DV\x00";
 
-    $text .= $line . "\n";
-    $text .= "Subtotal : " . $money($workOrder->subtotal) . "\n";
-    $text .= "Discount : " . $money($workOrder->discount) . "\n";
-    $text .= "TOTAL    : " . $money($grandTotal) . "\n";
-    $text .= $line . "\n";
-    $text .= "Dibayar  : " . $money($totalPaid) . "\n";
-    $text .= "Sisa     : " . $money($remaining) . "\n";
-    $text .= $line . "\n";
-    $text .= "TERIMA KASIH\n";
-    $text .= "ATAS KEPERCAYAAN ANDA\n\n\n";
-    $text .= "\x1DV\x00";
-
-    // Out-Printer uses the Windows text-printing pipeline and can strip/translate
-    // ESC/POS control bytes. Send the bytes directly to the Windows spooler as RAW.
     $encoded = base64_encode($text);
     $printer = 'SUPERISC S31';
 
     $powershell = <<<'PS'
+$ErrorActionPreference = 'Stop'
 $raw = [Convert]::FromBase64String('__RAW__')
 $printer = '__PRINTER__'
+
+$p = Get-Printer -Name $printer -ErrorAction Stop
+Write-Output ("PRINTER_FOUND|Name={0}|Driver={1}|Port={2}" -f $p.Name, $p.DriverName, $p.PortName)
 
 Add-Type -TypeDefinition @'
 using System;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
 
-public static class RawPrinter {
+public static class BengkelRawPrinter {
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
     private class DOCINFO {
         [MarshalAs(UnmanagedType.LPWStr)] public string pDocName;
         [MarshalAs(UnmanagedType.LPWStr)] public string pOutputFile;
         [MarshalAs(UnmanagedType.LPWStr)] public string pDataType;
     }
+    [DllImport("winspool.drv", SetLastError=true, CharSet=CharSet.Unicode)] private static extern bool OpenPrinter(string name, out IntPtr handle, IntPtr defaults);
+    [DllImport("winspool.drv", SetLastError=true)] private static extern bool ClosePrinter(IntPtr handle);
+    [DllImport("winspool.drv", SetLastError=true, CharSet=CharSet.Unicode)] private static extern int StartDocPrinter(IntPtr handle, int level, [In] DOCINFO doc);
+    [DllImport("winspool.drv", SetLastError=true)] private static extern bool EndDocPrinter(IntPtr handle);
+    [DllImport("winspool.drv", SetLastError=true)] private static extern bool StartPagePrinter(IntPtr handle);
+    [DllImport("winspool.drv", SetLastError=true)] private static extern bool EndPagePrinter(IntPtr handle);
+    [DllImport("winspool.drv", SetLastError=true)] private static extern bool WritePrinter(IntPtr handle, byte[] data, int count, out int written);
 
-    [DllImport("winspool.drv", SetLastError = true, CharSet = CharSet.Unicode)]
-    private static extern bool OpenPrinter(string pPrinterName, out IntPtr phPrinter, IntPtr pDefault);
-
-    [DllImport("winspool.drv", SetLastError = true)]
-    private static extern bool ClosePrinter(IntPtr hPrinter);
-
-    [DllImport("winspool.drv", SetLastError = true, CharSet = CharSet.Unicode)]
-    private static extern int StartDocPrinter(IntPtr hPrinter, int level, [In] DOCINFO di);
-
-    [DllImport("winspool.drv", SetLastError = true)]
-    private static extern bool EndDocPrinter(IntPtr hPrinter);
-
-    [DllImport("winspool.drv", SetLastError = true)]
-    private static extern bool StartPagePrinter(IntPtr hPrinter);
-
-    [DllImport("winspool.drv", SetLastError = true)]
-    private static extern bool EndPagePrinter(IntPtr hPrinter);
-
-    [DllImport("winspool.drv", SetLastError = true)]
-    private static extern bool WritePrinter(IntPtr hPrinter, byte[] pBytes, int dwCount, out int dwWritten);
-
-    public static void Send(string printer, byte[] data) {
-        IntPtr hPrinter;
-        if (!OpenPrinter(printer, out hPrinter, IntPtr.Zero))
-            throw new Win32Exception(Marshal.GetLastWin32Error(), "OpenPrinter gagal");
-
+    public static string Send(string printer, byte[] data) {
+        IntPtr h;
+        if (!OpenPrinter(printer, out h, IntPtr.Zero)) throw new Win32Exception(Marshal.GetLastWin32Error(), "OpenPrinter gagal");
         try {
-            var di = new DOCINFO {
-                pDocName = "Nota Work Order",
-                pDataType = "RAW",
-                pOutputFile = null
-            };
-
-            if (StartDocPrinter(hPrinter, 1, di) == 0)
-                throw new Win32Exception(Marshal.GetLastWin32Error(), "StartDocPrinter gagal");
-
+            var doc = new DOCINFO { pDocName="Nota Work Order", pDataType="RAW", pOutputFile=null };
+            int job = StartDocPrinter(h, 1, doc);
+            if (job == 0) throw new Win32Exception(Marshal.GetLastWin32Error(), "StartDocPrinter gagal");
             try {
-                if (!StartPagePrinter(hPrinter))
-                    throw new Win32Exception(Marshal.GetLastWin32Error(), "StartPagePrinter gagal");
-
+                if (!StartPagePrinter(h)) throw new Win32Exception(Marshal.GetLastWin32Error(), "StartPagePrinter gagal");
                 try {
                     int written;
-                    if (!WritePrinter(hPrinter, data, data.Length, out written) || written != data.Length)
-                        throw new Win32Exception(Marshal.GetLastWin32Error(), "WritePrinter gagal");
-                }
-                finally {
-                    EndPagePrinter(hPrinter);
-                }
-            }
-            finally {
-                EndDocPrinter(hPrinter);
-            }
-        }
-        finally {
-            ClosePrinter(hPrinter);
-        }
+                    if (!WritePrinter(h, data, data.Length, out written)) throw new Win32Exception(Marshal.GetLastWin32Error(), "WritePrinter gagal");
+                    return "RAW_SENT|Bytes=" + written + "|JobId=" + job;
+                } finally { EndPagePrinter(h); }
+            } finally { EndDocPrinter(h); }
+        } finally { ClosePrinter(h); }
     }
 }
 '@
 
-[RawPrinter]::Send($printer, $raw)
+$result = [BengkelRawPrinter]::Send($printer, $raw)
+Write-Output $result
+Write-Output 'PRINT_OK'
 PS;
 
-    $powershell = str_replace(
-        ['__RAW__', '__PRINTER__'],
-        [$encoded, $printer],
-        $powershell
-    );
-
-    // -EncodedCommand avoids quoting/escaping problems with arbitrary receipt data.
+    $powershell = str_replace(['__RAW__', '__PRINTER__'], [$encoded, $printer], $powershell);
     $encodedCommand = base64_encode(mb_convert_encoding($powershell, 'UTF-16LE', 'UTF-8'));
     $command = 'powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand ' . $encodedCommand;
 
@@ -181,16 +130,12 @@ PS;
     exec($command . ' 2>&1', $output, $exitCode);
 
     if ($exitCode !== 0) {
-        return response(
-            "Gagal mengirim nota ke printer {$printer}.\n" . implode("\n", $output),
-            500
-        );
+        return response("GAGAL RAW PRINT\nExitCode={$exitCode}\n" . implode("\n", $output), 500, ['Content-Type'=>'text/plain; charset=UTF-8']);
     }
 
-    return response("Nota {$workOrder->code} dikirim sebagai RAW ESC/POS ke printer {$printer}.");
+    return response("Nota {$workOrder->code} berhasil dikirim sebagai RAW ESC/POS ke printer {$printer}.\n" . implode("\n", $output), 200, ['Content-Type'=>'text/plain; charset=UTF-8']);
 })->name('work-orders.print-direct');
 
-// Cetak Nota menggunakan jalur RAW printer Windows.
 Route::get('/work-orders/{workOrder}/print', function (\App\Models\WorkOrder $workOrder) {
     return redirect()->route('work-orders.print-direct', $workOrder);
 })->name('work-orders.print');
