@@ -96,10 +96,12 @@ Route::get('/work-orders/{workOrder}/print-direct', function (\App\Models\WorkOr
     return response("Nota {$workOrder->code} dikirim ke printer {$printer}.");
 })->name('work-orders.print-direct');
 
+// Cetak Nota sekarang menggunakan jalur direct printer Windows.
+// Tombol lama yang memanggil work-orders.print tetap kompatibel.
 Route::get('/work-orders/{workOrder}/print', function (\App\Models\WorkOrder $workOrder) {
-    $workOrder->load(['customer', 'items.product', 'items.service', 'items.supplier', 'payments']);
-    return view('work_orders.print', compact('workOrder'));
+    return redirect()->route('work-orders.print-direct', $workOrder);
 })->name('work-orders.print');
+
 Route::patch('/work-orders/{workOrder}/final', [WorkOrderController::class, 'final'])->name('work-orders.final');
 Route::resource('work-order-items', WorkOrderItemController::class);
 Route::resource('work-order-additional-charges', WorkOrderAdditionalChargeController::class);
