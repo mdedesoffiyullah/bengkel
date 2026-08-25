@@ -15,16 +15,24 @@ class WorkOrderItemObserver implements ShouldHandleEventsAfterCommit
 {
     public function created(WorkOrderItem $item): void
     {
-        if ($item->item_type !== 'PRODUCT' || !$item->product_id) {
-            return;
-        }
-
+        if ($item->item_type !== 'PRODUCT' || !$item->product_id) return;
         $workOrder = $item->workOrder;
-        if (!$workOrder) {
-            return;
-        }
+        if (!$workOrder) return;
 
         $this->syncPurchaseFromWorkOrderItem($item, $workOrder);
+
+        // FIFO consumption is only safe after every PRODUCT item in this WO
+        // has received its automatic purchase/inventory balance.
+        $workOrder->refresh();
+        $productItemIds = $workOrder->items()
+            ->where('item_type', 'PRODUCT')
+            ->whereNotNull('product_id')
+            ->pluck('id');
+
+        if ($productItemIds->isEmpty()) return;
+
+        $receivedCount = PurchaseItem::whereIn('work_order_item_id', $productItemIds)->count();
+        if ($receivedCount < $productItemIds->count()) return;
 
         app(InventoryFifoService::class)->syncWorkOrderConsumption($workOrder);
     }
@@ -32,25 +40,14 @@ class WorkOrderItemObserver implements ShouldHandleEventsAfterCommit
     private function syncPurchaseFromWorkOrderItem(WorkOrderItem $item, $workOrder): void
     {
         $purchaseQuantity = (int) ($item->purchase_quantity ?? 0);
-        if ($purchaseQuantity <= 0) {
-            return;
-        }
-
-        if (PurchaseItem::where('work_order_item_id', $item->id)->exists()) {
-            return;
-        }
+        if ($purchaseQuantity <= 0 || PurchaseItem::where('work_order_item_id', $item->id)->exists()) return;
 
         $supplierId = $item->supplier_id;
         if (!$supplierId) {
             $activeSuppliers = Supplier::where('is_active', true)->get(['id']);
-            if ($activeSuppliers->count() === 1) {
-                $supplierId = $activeSuppliers->first()->id;
-            }
+            if ($activeSuppliers->count() === 1) $supplierId = $activeSuppliers->first()->id;
         }
-
-        if (!$supplierId) {
-            return;
-        }
+        if (!$supplierId) return;
 
         $unitCost = (float) ($item->unit_cost ?? 0);
         $lineTotal = max(0, $purchaseQuantity * $unitCost);
@@ -60,8 +57,7 @@ class WorkOrderItemObserver implements ShouldHandleEventsAfterCommit
                 ->where('purchase_type', 'WO')
                 ->where('supplier_id', $supplierId)
                 ->where('status', '!=', 'CANCELLED')
-                ->latest('id')
-                ->first();
+                ->latest('id')->first();
 
             if (!$purchase) {
                 $purchase = Purchase::create([
@@ -92,11 +88,7 @@ class WorkOrderItemObserver implements ShouldHandleEventsAfterCommit
                 'notes' => 'Dibuat otomatis dari Work Order ' . $workOrder->code,
             ]);
 
-            app(InventoryFifoService::class)->receivePurchaseItem(
-                $purchaseItem,
-                $purchaseQuantity,
-                $purchase->received_at
-            );
+            app(InventoryFifoService::class)->receivePurchaseItem($purchaseItem, $purchaseQuantity, $purchase->received_at);
 
             $purchase->update([
                 'status' => 'RECEIVED',
@@ -112,29 +104,22 @@ class WorkOrderItemObserver implements ShouldHandleEventsAfterCommit
     private function syncPurchasePayment(Purchase $purchase, $workOrder): void
     {
         $purchaseTotal = (float) $purchase->grand_total;
-        if ($purchaseTotal <= 0) {
-            return;
-        }
+        if ($purchaseTotal <= 0) return;
 
         $payment = Payment::where('purchase_id', $purchase->id)
-            ->where('transaction_type', 'PURCHASE_PAYMENT')
-            ->first();
+            ->where('transaction_type', 'PURCHASE_PAYMENT')->first();
 
         $payload = [
             'work_order_id' => $workOrder->id,
             'purchase_id' => $purchase->id,
             'paid_at' => $purchase->received_at ?? now(),
             'amount' => $purchaseTotal,
-            // payments.method is currently an enum without OTHER.
             'method' => 'CASH',
             'reference_number' => null,
             'notes' => 'Pembayaran supplier otomatis dari Work Order ' . $workOrder->code,
         ];
 
-        if ($payment) {
-            $payment->update($payload);
-            return;
-        }
+        if ($payment) { $payment->update($payload); return; }
 
         Payment::create([
             'code' => 'PAY-PO-' . $purchase->code,
