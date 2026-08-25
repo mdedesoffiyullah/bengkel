@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Validation\ValidationException;
 
 class WorkOrder extends Model
 {
@@ -39,6 +40,31 @@ class WorkOrder extends Model
         ];
     }
 
+    protected static function booted(): void
+    {
+        static::updating(function (WorkOrder $workOrder) {
+            if (!$workOrder->isDirty('grand_total')) {
+                return;
+            }
+
+            $paid = (float) $workOrder->payments()
+                ->where('transaction_type', 'CUSTOMER_PAYMENT')
+                ->sum('amount');
+
+            $newGrandTotal = (float) $workOrder->grand_total;
+
+            if ($paid > $newGrandTotal) {
+                throw ValidationException::withMessages([
+                    'items' => 'Grand Total Work Order tidak boleh lebih kecil dari total pembayaran yang sudah tercatat. Pembayaran saat ini: Rp '
+                        . number_format($paid, 0, ',', '.')
+                        . '. Grand Total baru: Rp '
+                        . number_format($newGrandTotal, 0, ',', '.')
+                        . '. Koreksi/refund pembayaran terlebih dahulu.',
+                ]);
+            }
+        });
+    }
+
     public function customer(): BelongsTo
     {
         return $this->belongsTo(Customer::class);
@@ -59,4 +85,3 @@ class WorkOrder extends Model
         return $this->hasMany(Payment::class);
     }
 }
-
