@@ -4,8 +4,8 @@ import './bootstrap';
  * Global JS bootstrap.
  *
  * Work Order has its own inline UI/JS because item rows are created dynamically.
- * Do NOT transform every <select> globally: doing that breaks the Work Order
- * item-type/source controls and their inline event handlers.
+ * Supplier selector is injected into PRODUCT rows here without changing the
+ * existing Work Order payment/quantity calculations.
  */
 
 document.addEventListener('DOMContentLoaded', () => {
@@ -37,6 +37,8 @@ document.addEventListener('DOMContentLoaded', () => {
 
         return supplierCache.get(key);
     };
+
+    const getRows = () => document.querySelectorAll('[data-index]');
 
     const addSupplierSelector = async row => {
         if (!row) return;
@@ -217,7 +219,7 @@ document.addEventListener('DOMContentLoaded', () => {
     };
 
     const scanRows = () => {
-        document.querySelectorAll('.item-row').forEach(row => addSupplierSelector(row));
+        getRows().forEach(row => addSupplierSelector(row));
     };
 
     const observer = new MutationObserver(scanRows);
@@ -227,7 +229,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const typeSelect = event.target.closest?.('select[name*="[item_type]"]');
         if (!typeSelect) return;
 
-        const row = typeSelect.closest('.item-row');
+        const row = typeSelect.closest('[data-index]');
         if (row) addSupplierSelector(row);
     });
 
