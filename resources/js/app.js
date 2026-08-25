@@ -1,198 +1,184 @@
 import './bootstrap';
 
 /* Work Order supplier UI.
- *
- * The Work Order Blade changes item type/mode programmatically, so relying only
- * on DOM mutation/change events can miss the moment a row becomes PRODUCT.
- * Keep the supplier control synchronized with the actual row state.
+ * Supplier controls are rendered directly into PRODUCT rows. The UI is kept
+ * independent from the Work Order item-type event so it also works when the
+ * row is changed programmatically by the Blade script.
  */
-
 document.addEventListener('DOMContentLoaded', () => {
     if (!window.location.pathname.startsWith('/work-orders')) return;
 
-    const supplierCache = new Map();
+    const cache = new Map();
 
-    const loadSuppliers = async productId => {
+    async function getSuppliers(productId = '') {
         const key = productId || 'all';
-        if (!supplierCache.has(key)) {
+        if (!cache.has(key)) {
             const url = productId
                 ? `/suppliers?json=1&product_id=${encodeURIComponent(productId)}`
                 : '/suppliers?json=1';
-            supplierCache.set(key, fetch(url, {
+            cache.set(key, fetch(url, {
                 headers: { Accept: 'application/json' },
-                credentials: 'same-origin'
-            }).then(response => {
-                if (!response.ok) throw new Error('Gagal memuat supplier.');
-                return response.json();
+                credentials: 'same-origin',
+            }).then(async response => {
+                if (!response.ok) throw new Error(`Supplier HTTP ${response.status}`);
+                const data = await response.json();
+                return Array.isArray(data) ? data : (Array.isArray(data.data) ? data.data : []);
             }));
         }
-        return supplierCache.get(key);
-    };
+        return cache.get(key);
+    }
 
-    const getRows = () => document.querySelectorAll('[data-index]');
-
-    const addSupplierSelector = async row => {
-        if (!row) return;
-
-        const typeSelect = row.querySelector('select[name*="[item_type]"]');
-        const index = row.dataset.index;
-        const purchaseBox = row.querySelector('.purchase-quantity-box');
-        if (!typeSelect || index === undefined || !purchaseBox) return;
-
-        let wrapper = row.querySelector('.supplier-box');
-
-        if (!wrapper) {
-            wrapper = document.createElement('div');
-            wrapper.className = 'supplier-box md:col-span-2 hidden';
-            wrapper.innerHTML = `
-                <label class="block text-sm font-medium mb-1">Supplier Pembelian</label>
+    function supplierMarkup(index) {
+        return `
+            <div class="supplier-box md:col-span-2 mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
+                <label class="block text-sm font-semibold mb-1">Supplier Pembelian *</label>
                 <div class="relative">
                     <input type="text" autocomplete="off"
-                        class="supplier-search w-full rounded-lg border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
-                        placeholder="Ketik nama/kode supplier..."
-                        role="combobox" aria-expanded="false" aria-autocomplete="list">
+                        class="supplier-search w-full rounded-lg border-gray-300 bg-white shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+                        placeholder="Ketik nama / kode / contact / telepon supplier..."
+                        role="combobox" aria-expanded="false">
                     <input type="hidden" name="items[${index}][supplier_id]" class="supplier-id">
-                    <input type="hidden" name="items[${index}][supplier_mode]" class="supplier-mode" value="">
-                    <div class="supplier-results absolute z-50 mt-1 hidden w-full max-h-64 overflow-auto rounded-lg border border-gray-200 bg-white shadow-lg"></div>
+                    <input type="hidden" name="items[${index}][supplier_mode]" class="supplier-mode">
+                    <div class="supplier-results absolute left-0 right-0 top-full z-[100] mt-1 hidden max-h-64 overflow-auto rounded-lg border border-gray-200 bg-white shadow-xl"></div>
                 </div>
-                <div class="supplier-new hidden mt-3 rounded-lg border border-dashed border-gray-300 bg-gray-50 p-4">
-                    <div class="flex items-center justify-between mb-3">
+                <p class="mt-1 text-xs text-gray-500">Supplier ini menjadi pihak pembelian dan pembayaran purchase.</p>
+
+                <div class="supplier-new hidden mt-4 rounded-lg border border-dashed border-gray-300 bg-white p-4">
+                    <div class="mb-3 flex items-center justify-between">
                         <div>
-                            <p class="font-semibold text-sm">Tambah Supplier Baru</p>
-                            <p class="text-xs text-gray-500">Supplier baru akan disimpan ke Master Supplier.</p>
+                            <div class="font-semibold text-sm">Tambah Supplier Baru</div>
+                            <div class="text-xs text-gray-500">Isi data supplier baru lalu simpan.</div>
                         </div>
-                        <button type="button" class="supplier-cancel-new text-xs text-blue-600">Pilih Supplier Lama</button>
+                        <button type="button" class="supplier-cancel-new text-xs font-medium text-blue-600 hover:underline">Pilih Supplier Lama</button>
                     </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <input name="items[${index}][supplier_code]" class="supplier-new-code rounded-lg border-gray-300" placeholder="Kode Supplier (opsional)">
-                        <input name="items[${index}][supplier_name]" class="supplier-new-name rounded-lg border-gray-300" placeholder="Nama Supplier *">
-                        <input name="items[${index}][supplier_contact_person]" class="rounded-lg border-gray-300" placeholder="Contact Person">
-                        <input name="items[${index}][supplier_phone]" class="rounded-lg border-gray-300" placeholder="No. Telepon">
-                        <input name="items[${index}][supplier_address]" class="rounded-lg border-gray-300 md:col-span-2" placeholder="Alamat">
-                        <textarea name="items[${index}][supplier_notes]" rows="2" class="rounded-lg border-gray-300 md:col-span-2" placeholder="Catatan"></textarea>
+                    <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
+                        <div>
+                            <label class="block text-xs font-medium mb-1">Kode Supplier</label>
+                            <input name="items[${index}][supplier_code]" class="supplier-new-code w-full rounded-lg border-gray-300" placeholder="Opsional - otomatis jika kosong">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium mb-1">Nama Supplier *</label>
+                            <input name="items[${index}][supplier_name]" class="supplier-new-name w-full rounded-lg border-gray-300" placeholder="Nama Supplier">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium mb-1">Contact Person</label>
+                            <input name="items[${index}][supplier_contact_person]" class="w-full rounded-lg border-gray-300" placeholder="Nama contact person">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium mb-1">No. Telepon</label>
+                            <input name="items[${index}][supplier_phone]" class="w-full rounded-lg border-gray-300" placeholder="Nomor telepon">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-xs font-medium mb-1">Alamat</label>
+                            <input name="items[${index}][supplier_address]" class="w-full rounded-lg border-gray-300" placeholder="Alamat supplier">
+                        </div>
+                        <div class="md:col-span-2">
+                            <label class="block text-xs font-medium mb-1">Catatan</label>
+                            <textarea name="items[${index}][supplier_notes]" rows="2" class="w-full rounded-lg border-gray-300" placeholder="Catatan"></textarea>
+                        </div>
                     </div>
                 </div>
-                <p class="text-xs text-gray-500 mt-1 supplier-help">Cari supplier lama berdasarkan kode, nama, contact person, atau telepon. Supplier yang pernah memasok produk ini diprioritaskan.</p>
-            `;
+            </div>
+        `;
+    }
 
-            purchaseBox.parentElement?.insertBefore(wrapper, purchaseBox);
+    async function ensureSupplier(row) {
+        if (!row || !row.dataset.index) return;
+        const type = row.querySelector('select[name*="[item_type]"]');
+        const purchaseBox = row.querySelector('.purchase-quantity-box');
+        if (!type || !purchaseBox || type.value !== 'PRODUCT') return;
 
-            const search = wrapper.querySelector('.supplier-search');
-            const results = wrapper.querySelector('.supplier-results');
-            const hiddenId = wrapper.querySelector('.supplier-id');
-            const supplierMode = wrapper.querySelector('.supplier-mode');
-            const newBox = wrapper.querySelector('.supplier-new');
-            const newName = wrapper.querySelector('.supplier-new-name');
-            let suppliers = [];
+        let box = row.querySelector('.supplier-box');
+        if (!box) {
+            purchaseBox.parentElement.insertAdjacentHTML('afterbegin', supplierMarkup(row.dataset.index));
+            box = row.querySelector('.supplier-box');
 
-            const closeResults = () => {
+            const search = box.querySelector('.supplier-search');
+            const results = box.querySelector('.supplier-results');
+            const idInput = box.querySelector('.supplier-id');
+            const modeInput = box.querySelector('.supplier-mode');
+            const newBox = box.querySelector('.supplier-new');
+            const newName = box.querySelector('.supplier-new-name');
+
+            function closeResults() {
                 results.classList.add('hidden');
                 search.setAttribute('aria-expanded', 'false');
-            };
+            }
 
-            const selectExistingSupplier = supplier => {
-                hiddenId.value = supplier.id;
-                supplierMode.value = 'EXISTING';
-                search.value = `${supplier.code} - ${supplier.name}`;
+            function choose(supplier) {
+                idInput.value = supplier.id || '';
+                modeInput.value = 'EXISTING';
+                search.value = `${supplier.code || ''} - ${supplier.name || ''}`.replace(/^ - /, '');
                 newBox.classList.add('hidden');
                 closeResults();
-            };
+            }
 
-            const openNewSupplier = query => {
-                hiddenId.value = '';
-                supplierMode.value = 'NEW';
+            function openNew() {
+                idInput.value = '';
+                modeInput.value = 'NEW';
                 newBox.classList.remove('hidden');
-                if (query.trim() && !newName.value) newName.value = query.trim();
+                if (!newName.value.trim() && search.value.trim()) newName.value = search.value.trim();
                 closeResults();
                 newName.focus();
-            };
+            }
 
-            const renderResults = query => {
-                const normalized = query.trim().toLowerCase();
-                results.innerHTML = '';
-
-                suppliers
-                    .filter(s => `${s.code} ${s.name} ${s.contact_person || ''} ${s.phone || ''}`.toLowerCase().includes(normalized))
-                    .slice(0, 50)
-                    .forEach(supplier => {
-                        const button = document.createElement('button');
-                        button.type = 'button';
-                        button.className = 'block w-full px-3 py-2 text-left text-sm hover:bg-gray-50';
-                        button.innerHTML = `<span class="font-medium"></span>${supplier.phone ? '<span class="block text-xs text-gray-500"></span>' : ''}`;
-                        button.children[0].textContent = `${supplier.code} - ${supplier.name}`;
-                        if (supplier.phone) button.children[1].textContent = supplier.phone;
-                        button.addEventListener('mousedown', e => e.preventDefault());
-                        button.addEventListener('click', () => selectExistingSupplier(supplier));
-                        results.appendChild(button);
-                    });
-
-                const newButton = document.createElement('button');
-                newButton.type = 'button';
-                newButton.className = 'block w-full border-t px-3 py-2 text-left text-sm font-semibold text-blue-600 hover:bg-blue-50';
-                newButton.textContent = query.trim() ? `+ Tambah Supplier Baru: "${query.trim()}"` : '+ Tambah Supplier Baru';
-                newButton.addEventListener('mousedown', e => e.preventDefault());
-                newButton.addEventListener('click', () => openNewSupplier(query));
-                results.appendChild(newButton);
-                results.classList.remove('hidden');
-                search.setAttribute('aria-expanded', 'true');
-            };
-
-            const refreshSuppliers = async () => {
+            async function render() {
+                let suppliers = [];
                 try {
                     const productId = row.querySelector('select[name*="[product_id]"]')?.value || '';
-                    suppliers = await loadSuppliers(productId);
+                    suppliers = await getSuppliers(productId);
                 } catch (error) {
-                    console.error('Supplier lookup:', error);
-                    suppliers = [];
+                    console.error(error);
                 }
-            };
 
-            search.addEventListener('focus', () => renderResults(search.value));
+                const q = search.value.trim().toLowerCase();
+                results.innerHTML = '';
+                suppliers.filter(s => `${s.code || ''} ${s.name || ''} ${s.contact_person || ''} ${s.phone || ''}`.toLowerCase().includes(q)).slice(0, 50).forEach(s => {
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'block w-full border-b px-3 py-2 text-left text-sm hover:bg-gray-50';
+                    button.textContent = `${s.code || ''} - ${s.name || ''}`;
+                    button.addEventListener('mousedown', e => e.preventDefault());
+                    button.addEventListener('click', () => choose(s));
+                    results.appendChild(button);
+                });
+
+                const add = document.createElement('button');
+                add.type = 'button';
+                add.className = 'block w-full px-3 py-3 text-left text-sm font-semibold text-blue-600 hover:bg-blue-50';
+                add.textContent = search.value.trim() ? `+ Tambah Supplier Baru: "${search.value.trim()}"` : '+ Tambah Supplier Baru';
+                add.addEventListener('mousedown', e => e.preventDefault());
+                add.addEventListener('click', openNew);
+                results.appendChild(add);
+                results.classList.remove('hidden');
+                search.setAttribute('aria-expanded', 'true');
+            }
+
+            search.addEventListener('focus', render);
             search.addEventListener('input', () => {
-                hiddenId.value = '';
-                supplierMode.value = '';
+                idInput.value = '';
+                modeInput.value = '';
                 newBox.classList.add('hidden');
-                renderResults(search.value);
+                render();
             });
-            search.addEventListener('keydown', event => {
-                if (event.key === 'Escape') closeResults();
-                if (event.key === 'Enter') {
-                    const first = results.querySelector('button');
-                    if (first) { event.preventDefault(); first.click(); }
-                }
+            search.addEventListener('keydown', e => {
+                if (e.key === 'Escape') closeResults();
             });
-
-            wrapper.querySelector('.supplier-cancel-new').addEventListener('click', () => {
-                supplierMode.value = '';
-                hiddenId.value = '';
+            box.querySelector('.supplier-cancel-new').addEventListener('click', () => {
+                modeInput.value = '';
+                idInput.value = '';
                 newBox.classList.add('hidden');
+                search.value = '';
                 search.focus();
             });
-
-            row.querySelectorAll('select[name*="[product_id]"]').forEach(select => {
-                select.addEventListener('change', async () => {
-                    hiddenId.value = '';
-                    supplierMode.value = '';
-                    search.value = '';
-                    newBox.classList.add('hidden');
-                    await refreshSuppliers();
-                });
-            });
-
-            await refreshSuppliers();
         }
+    }
 
-        wrapper.classList.toggle('hidden', typeSelect.value !== 'PRODUCT');
+    function scan() {
+        document.querySelectorAll('.item-row[data-index]').forEach(row => ensureSupplier(row));
+    }
 
-        if (typeSelect.value === 'PRODUCT') {
-            await loadSuppliers(row.querySelector('select[name*="[product_id]"]')?.value || '');
-        }
-    };
-
-    const scanRows = () => getRows().forEach(row => addSupplierSelector(row));
-
-    // Initial creation and programmatic item-type/mode changes are both covered.
-    scanRows();
-    new MutationObserver(scanRows).observe(document.body, { childList: true, subtree: true });
-    setInterval(scanRows, 300);
+    scan();
+    new MutationObserver(scan).observe(document.body, { childList: true, subtree: true });
+    setInterval(scan, 500);
 });
