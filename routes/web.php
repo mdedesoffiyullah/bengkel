@@ -39,17 +39,53 @@ Route::get('/work-orders/{workOrder}/print-direct', function (\App\Models\WorkOr
     $workOrder->load(['customer', 'items.product', 'items.service', 'payments']);
 
     $printer = 'SUPERISC S31';
-    $testPayload = "PRINTER TEST\r\n";
+    $money = fn ($value) => 'Rp ' . number_format((float) $value, 0, ',', '.');
+    $qty = fn ($value) => rtrim(rtrim(number_format((float) $value, 3, ',', '.'), '0'), ',');
+    $line = str_repeat('-', 32);
+
+    $text = "BENGKEL\r\n";
+    $text .= "MANAGEMENT SYSTEM\r\n";
+    $text .= $line . "\r\n";
+    $text .= "NO : {$workOrder->code}\r\n";
+    $text .= "TGL: " . optional($workOrder->opened_at)->format('d/m/Y H:i') . "\r\n";
+    $text .= $line . "\r\n";
+    $text .= "CUSTOMER\r\n";
+    $text .= ($workOrder->customer->name ?? '-') . "\r\n";
+    $text .= "TELP: " . ($workOrder->customer->phone ?? '-') . "\r\n";
+    $text .= "NOPOL: " . ($workOrder->customer->plate_number ?? '-') . "\r\n";
+    $text .= "KEND: " . (trim(($workOrder->customer->brand ?? '') . ' ' . ($workOrder->customer->type ?? '')) ?: '-') . "\r\n";
+    $text .= $line . "\r\n";
+    $text .= "PEKERJAAN / SPAREPART\r\n";
+
+    foreach ($workOrder->items as $item) {
+        $name = $item->item_name ?? $item->product?->name ?? $item->service?->name ?? '-';
+        $text .= $name . "\r\n";
+        $text .= $qty($item->quantity) . " x " . $money($item->unit_price) . " = " . $money($item->subtotal) . "\r\n";
+    }
+
+    $totalPaid = (float) ($workOrder->payments?->sum('amount') ?? 0);
+    $grandTotal = (float) ($workOrder->grand_total ?? 0);
+    $remaining = max(0, $grandTotal - $totalPaid);
+    $text .= $line . "\r\n";
+    $text .= "Subtotal : " . $money($workOrder->subtotal) . "\r\n";
+    $text .= "Discount : " . $money($workOrder->discount) . "\r\n";
+    $text .= "TOTAL    : " . $money($grandTotal) . "\r\n";
+    $text .= $line . "\r\n";
+    $text .= "Dibayar  : " . $money($totalPaid) . "\r\n";
+    $text .= "Sisa     : " . $money($remaining) . "\r\n";
+    $text .= $line . "\r\n";
+    $text .= "TERIMA KASIH\r\n";
+    $text .= "ATAS KEPERCAYAAN ANDA\r\n\r\n\r\n\r\n";
+
+    $printerEscaped = str_replace("'", "''", $printer);
+    $payloadEscaped = str_replace("'", "''", $text);
 
     $powershell = <<<'PS'
 $ErrorActionPreference = 'Stop'
 $printer = '__PRINTER__'
 $raw = [System.Text.Encoding]::ASCII.GetBytes('__PAYLOAD__')
 
-function Fail-Step($step, $message) {
-    $code = [Runtime.InteropServices.Marshal]::GetLastWin32Error()
-    throw "STEP_FAIL|$step|Win32Error=$code|$message"
-}
+function Last-Error { return [Runtime.InteropServices.Marshal]::GetLastWin32Error() }
 
 try {
     $p = Get-Printer -Name $printer -ErrorAction Stop
@@ -59,92 +95,83 @@ try {
 using System;
 using System.ComponentModel;
 using System.Runtime.InteropServices;
-public static class BengkelPrinterDiagnostic {
+public static class BengkelRawPrinter {
     [StructLayout(LayoutKind.Sequential, CharSet=CharSet.Unicode)]
     private class DOCINFO {
         [MarshalAs(UnmanagedType.LPWStr)] public string pDocName;
         [MarshalAs(UnmanagedType.LPWStr)] public string pOutputFile;
         [MarshalAs(UnmanagedType.LPWStr)] public string pDataType;
     }
-    [DllImport("winspool.drv", SetLastError=true, CharSet=CharSet.Unicode)]
-    private static extern bool OpenPrinter(string name, out IntPtr handle, IntPtr defaults);
+    [DllImport("winspool.drv", SetLastError=true, CharSet=CharSet.Unicode)] private static extern bool OpenPrinter(string name, out IntPtr handle, IntPtr defaults);
     [DllImport("winspool.drv", SetLastError=true)] private static extern bool ClosePrinter(IntPtr handle);
-    [DllImport("winspool.drv", SetLastError=true, CharSet=CharSet.Unicode)]
-    private static extern int StartDocPrinter(IntPtr handle, int level, [In] DOCINFO doc);
+    [DllImport("winspool.drv", SetLastError=true, CharSet=CharSet.Unicode)] private static extern int StartDocPrinter(IntPtr handle, int level, [In] DOCINFO doc);
     [DllImport("winspool.drv", SetLastError=true)] private static extern bool EndDocPrinter(IntPtr handle);
     [DllImport("winspool.drv", SetLastError=true)] private static extern bool StartPagePrinter(IntPtr handle);
     [DllImport("winspool.drv", SetLastError=true)] private static extern bool EndPagePrinter(IntPtr handle);
     [DllImport("winspool.drv", SetLastError=true)] private static extern bool WritePrinter(IntPtr handle, byte[] data, int count, out int written);
 
-    public static string Run(string printer, byte[] data) {
+    public static void Run(string printer, byte[] data) {
         IntPtr h;
-        if (!OpenPrinter(printer, out h, IntPtr.Zero)) {
-            int e = Marshal.GetLastWin32Error();
-            throw new Win32Exception(e, "OpenPrinter gagal");
-        }
+        if (!OpenPrinter(printer, out h, IntPtr.Zero)) throw new Win32Exception(Marshal.GetLastWin32Error(), "OpenPrinter gagal");
         Console.WriteLine("OPEN_PRINTER_OK");
+        bool docStarted = false;
+        bool pageStarted = false;
         try {
-            var doc = new DOCINFO { pDocName="Bengkel Printer Diagnostic", pOutputFile=null, pDataType="RAW" };
+            var doc = new DOCINFO { pDocName="Bengkel Work Order", pOutputFile=null, pDataType="RAW" };
             int job = StartDocPrinter(h, 1, doc);
-            if (job == 0) {
-                int e = Marshal.GetLastWin32Error();
-                throw new Win32Exception(e, "StartDocPrinter gagal");
+            Console.WriteLine("START_DOC|JobId=" + job + "|LastError=" + Marshal.GetLastWin32Error());
+            if (job == 0) throw new Win32Exception(Marshal.GetLastWin32Error(), "StartDocPrinter gagal");
+            docStarted = true;
+
+            bool page = StartPagePrinter(h);
+            Console.WriteLine("START_PAGE|Result=" + page + "|LastError=" + Marshal.GetLastWin32Error());
+            if (!page) throw new Win32Exception(Marshal.GetLastWin32Error(), "StartPagePrinter gagal");
+            pageStarted = true;
+
+            int written;
+            bool write = WritePrinter(h, data, data.Length, out written);
+            int writeError = Marshal.GetLastWin32Error();
+            Console.WriteLine("WRITE_PRINTER|Result=" + write + "|Bytes=" + written + "|Expected=" + data.Length + "|LastError=" + writeError);
+            if (!write) throw new Win32Exception(writeError, "WritePrinter gagal");
+            if (written != data.Length) throw new Exception("WritePrinter hanya menulis sebagian data.");
+        }
+        finally {
+            if (pageStarted) {
+                bool endPage = EndPagePrinter(h);
+                Console.WriteLine("END_PAGE|Result=" + endPage + "|LastError=" + Marshal.GetLastWin32Error());
             }
-            Console.WriteLine("START_DOC_OK|JobId=" + job);
-            try {
-                if (!StartPagePrinter(h)) {
-                    int e = Marshal.GetLastWin32Error();
-                    throw new Win32Exception(e, "StartPagePrinter gagal");
-                }
-                Console.WriteLine("START_PAGE_OK");
-                try {
-                    int written;
-                    bool ok = WritePrinter(h, data, data.Length, out written);
-                    int error = Marshal.GetLastWin32Error();
-                    Console.WriteLine("WRITE_PRINTER|Result=" + ok + "|Bytes=" + written + "|Expected=" + data.Length + "|LastError=" + error);
-                    if (!ok) throw new Win32Exception(error, "WritePrinter gagal");
-                    return "WRITE_OK";
-                } finally {
-                    bool endPage = EndPagePrinter(h);
-                    int error = Marshal.GetLastWin32Error();
-                    Console.WriteLine("END_PAGE|Result=" + endPage + "|LastError=" + error);
-                }
-            } finally {
+            if (docStarted) {
                 bool endDoc = EndDocPrinter(h);
-                int error = Marshal.GetLastWin32Error();
-                Console.WriteLine("END_DOC|Result=" + endDoc + "|LastError=" + error);
+                Console.WriteLine("END_DOC|Result=" + endDoc + "|LastError=" + Marshal.GetLastWin32Error());
             }
-        } finally {
             bool closed = ClosePrinter(h);
-            int error = Marshal.GetLastWin32Error();
-            Console.WriteLine("CLOSE_PRINTER|Result=" + closed + "|LastError=" + error);
+            Console.WriteLine("CLOSE_PRINTER|Result=" + closed + "|LastError=" + Marshal.GetLastWin32Error());
         }
     }
 }
 '@
 
-    [BengkelPrinterDiagnostic]::Run($printer, $raw)
-    Write-Output 'DIAGNOSTIC_OK'
+    [BengkelRawPrinter]::Run($printer, $raw)
+    Write-Output 'RAW_PRINT_OK'
+    exit 0
 } catch {
-    Write-Output ("DIAGNOSTIC_FAIL|Type={0}|Message={1}" -f $_.Exception.GetType().FullName, $_.Exception.Message)
+    Write-Output ("RAW_PRINT_FAIL|Type={0}|Message={1}" -f $_.Exception.GetType().FullName, $_.Exception.Message)
     exit 1
 }
 PS;
 
-    $powershell = str_replace(['__PRINTER__', '__PAYLOAD__'], [$printer, str_replace("'", "''", $testPayload)], $powershell);
-    $encodedCommand = base64_encode(mb_convert_encoding($powershell, 'UTF-16LE', 'UTF-8'));
-    $command = 'powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -EncodedCommand ' . $encodedCommand;
+    $powershell = str_replace(['__PRINTER__', '__PAYLOAD__'], [$printerEscaped, $payloadEscaped], $powershell);
+    $scriptPath = tempnam(sys_get_temp_dir(), 'bengkel-print-') . '.ps1';
+    file_put_contents($scriptPath, $powershell);
 
     $output = [];
     $exitCode = 0;
+    $command = 'powershell.exe -NoProfile -NonInteractive -ExecutionPolicy Bypass -File ' . escapeshellarg($scriptPath);
     exec($command . ' 2>&1', $output, $exitCode);
+    @unlink($scriptPath);
 
     $header = "PRINTER_DIAGNOSTIC|WO={$workOrder->code}|Printer={$printer}\n";
-    return response(
-        $header . implode("\n", $output) . "\nEXIT_CODE={$exitCode}\n",
-        $exitCode === 0 ? 200 : 500,
-        ['Content-Type' => 'text/plain; charset=UTF-8']
-    );
+    return response($header . implode("\n", $output) . "\nEXIT_CODE={$exitCode}\n", $exitCode === 0 ? 200 : 500, ['Content-Type' => 'text/plain; charset=UTF-8']);
 })->name('work-orders.print-direct');
 
 Route::get('/work-orders/{workOrder}/print', function (\App\Models\WorkOrder $workOrder) {
