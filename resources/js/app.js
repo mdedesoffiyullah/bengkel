@@ -1,10 +1,6 @@
 import './bootstrap';
 
-/* Work Order supplier UI.
- * Supplier controls are rendered directly into PRODUCT rows. The UI is kept
- * independent from the Work Order item-type event so it also works when the
- * row is changed programmatically by the Blade script.
- */
+/* Work Order supplier UI. Supplier is only shown for NEW PRODUCT rows. */
 document.addEventListener('DOMContentLoaded', () => {
     if (!window.location.pathname.startsWith('/work-orders')) return;
 
@@ -30,7 +26,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function supplierMarkup(index) {
         return `
-            <div class="supplier-box md:col-span-2 mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4">
+            <div class="supplier-box md:col-span-2 mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4 hidden">
                 <label class="block text-sm font-semibold mb-1">Supplier Pembelian *</label>
                 <div class="relative">
                     <input type="text" autocomplete="off"
@@ -52,30 +48,12 @@ document.addEventListener('DOMContentLoaded', () => {
                         <button type="button" class="supplier-cancel-new text-xs font-medium text-blue-600 hover:underline">Pilih Supplier Lama</button>
                     </div>
                     <div class="grid grid-cols-1 gap-3 md:grid-cols-2">
-                        <div>
-                            <label class="block text-xs font-medium mb-1">Kode Supplier</label>
-                            <input name="items[${index}][supplier_code]" class="supplier-new-code w-full rounded-lg border-gray-300" placeholder="Opsional - otomatis jika kosong">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-medium mb-1">Nama Supplier *</label>
-                            <input name="items[${index}][supplier_name]" class="supplier-new-name w-full rounded-lg border-gray-300" placeholder="Nama Supplier">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-medium mb-1">Contact Person</label>
-                            <input name="items[${index}][supplier_contact_person]" class="w-full rounded-lg border-gray-300" placeholder="Nama contact person">
-                        </div>
-                        <div>
-                            <label class="block text-xs font-medium mb-1">No. Telepon</label>
-                            <input name="items[${index}][supplier_phone]" class="w-full rounded-lg border-gray-300" placeholder="Nomor telepon">
-                        </div>
-                        <div class="md:col-span-2">
-                            <label class="block text-xs font-medium mb-1">Alamat</label>
-                            <input name="items[${index}][supplier_address]" class="w-full rounded-lg border-gray-300" placeholder="Alamat supplier">
-                        </div>
-                        <div class="md:col-span-2">
-                            <label class="block text-xs font-medium mb-1">Catatan</label>
-                            <textarea name="items[${index}][supplier_notes]" rows="2" class="w-full rounded-lg border-gray-300" placeholder="Catatan"></textarea>
-                        </div>
+                        <div><label class="block text-xs font-medium mb-1">Kode Supplier</label><input name="items[${index}][supplier_code]" class="supplier-new-code w-full rounded-lg border-gray-300" placeholder="Opsional - otomatis jika kosong"></div>
+                        <div><label class="block text-xs font-medium mb-1">Nama Supplier *</label><input name="items[${index}][supplier_name]" class="supplier-new-name w-full rounded-lg border-gray-300" placeholder="Nama Supplier"></div>
+                        <div><label class="block text-xs font-medium mb-1">Contact Person</label><input name="items[${index}][supplier_contact_person]" class="w-full rounded-lg border-gray-300" placeholder="Nama contact person"></div>
+                        <div><label class="block text-xs font-medium mb-1">No. Telepon</label><input name="items[${index}][supplier_phone]" class="w-full rounded-lg border-gray-300" placeholder="Nomor telepon"></div>
+                        <div class="md:col-span-2"><label class="block text-xs font-medium mb-1">Alamat</label><input name="items[${index}][supplier_address]" class="w-full rounded-lg border-gray-300" placeholder="Alamat supplier"></div>
+                        <div class="md:col-span-2"><label class="block text-xs font-medium mb-1">Catatan</label><textarea name="items[${index}][supplier_notes]" rows="2" class="w-full rounded-lg border-gray-300" placeholder="Catatan"></textarea></div>
                     </div>
                 </div>
             </div>
@@ -85,8 +63,9 @@ document.addEventListener('DOMContentLoaded', () => {
     async function ensureSupplier(row) {
         if (!row || !row.dataset.index) return;
         const type = row.querySelector('select[name*="[item_type]"]');
+        const mode = row.querySelector('select[name*="[mode]"]');
         const purchaseBox = row.querySelector('.purchase-quantity-box');
-        if (!type || !purchaseBox || type.value !== 'PRODUCT') return;
+        if (!type || !mode || !purchaseBox || type.value !== 'PRODUCT') return;
 
         let box = row.querySelector('.supplier-box');
         if (!box) {
@@ -171,6 +150,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 search.value = '';
                 search.focus();
             });
+        }
+
+        // Supplier is only relevant when creating a NEW sparepart.
+        if (mode.value === 'NEW') {
+            box.classList.remove('hidden');
+        } else {
+            box.classList.add('hidden');
+            box.querySelector('.supplier-results')?.classList.add('hidden');
+            box.querySelector('.supplier-new')?.classList.add('hidden');
+            box.querySelector('.supplier-search').value = '';
+            box.querySelector('.supplier-id').value = '';
+            box.querySelector('.supplier-mode').value = '';
         }
     }
 
