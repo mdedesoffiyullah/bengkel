@@ -21,18 +21,19 @@ class WorkOrderItemObserver implements ShouldHandleEventsAfterCommit
 
         $this->syncPurchaseFromWorkOrderItem($item, $workOrder);
 
-        // FIFO consumption is only safe after every PRODUCT item in this WO
-        // has received its automatic purchase/inventory balance.
+        // Wait until every PRODUCT that requested a purchase has received its
+        // inventory balance. Existing-stock products (purchase qty = 0) do not
+        // need a PurchaseItem and can still be consumed from their balance.
         $workOrder->refresh();
-        $productItemIds = $workOrder->items()
+        $productItems = $workOrder->items()
             ->where('item_type', 'PRODUCT')
             ->whereNotNull('product_id')
-            ->pluck('id');
+            ->get(['id', 'purchase_quantity']);
 
-        if ($productItemIds->isEmpty()) return;
+        $itemsRequiringPurchase = $productItems->filter(fn ($row) => (int) ($row->purchase_quantity ?? 0) > 0);
+        $receivedCount = PurchaseItem::whereIn('work_order_item_id', $itemsRequiringPurchase->pluck('id'))->count();
 
-        $receivedCount = PurchaseItem::whereIn('work_order_item_id', $productItemIds)->count();
-        if ($receivedCount < $productItemIds->count()) return;
+        if ($receivedCount < $itemsRequiringPurchase->count()) return;
 
         app(InventoryFifoService::class)->syncWorkOrderConsumption($workOrder);
     }
